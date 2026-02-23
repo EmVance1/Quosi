@@ -10,11 +10,15 @@ namespace quosi::ast {
 using namespace bc;
 
 
-#define SOFT_FAIL(tok, E) do { ctx.errors->list.push_back({ Error::Type::E, tok.span }); } while (0)
-#define CRIT_FAIL(tok, E) do { ctx.errors->list.push_back({ Error::Type::E, tok.span }); ctx.errors->fail = true; return; } while (0)
-#define SOFT_CHECK(tok, T, E) do { if (tok.type != Token::Type::T) { SOFT_FAIL(tok, E); } } while (0)
-#define CRIT_CHECK(tok, T, E) do { if (tok.type != Token::Type::T) { CRIT_FAIL(tok, E); } } while (0)
-#define PROP() do { if (ctx.errors->fail) return; } while (0)
+#define EH_FAIL(tok, E) do { ctx.errors->list.push_back({ Error::Type::E, tok.span }); \
+    if (ctx.errors->list.back().is_critical()) { ctx.errors->fail = true; return; } } while (0)
+#define EH_CHECK(tok, T, E) do { if (tok.type != Token::Type::T) { EH_FAIL(tok, E); } } while (0)
+#define EH_PROP() do { if (ctx.errors->fail) return; } while (0)
+
+#define EH_FAIL_RET(tok, E) do { ctx.errors->list.push_back({ Error::Type::E, tok.span }); \
+    if (ctx.errors->list.back().is_critical()) { ctx.errors->fail = true; return result; } } while (0)
+#define EH_CHECK_RET(tok, T, E) do { if (tok.type != Token::Type::T) { EH_FAIL_RET(tok, E); } } while (0)
+#define EH_PROP_RET() do { if (ctx.errors->fail) return result; } while (0)
 
 static void parse_vert(ParseContext& ctx, Vertex& result);
 static void parse_vert_if(ParseContext& ctx, VertexBlock::MyIfElse& result);
@@ -43,56 +47,36 @@ std::unique_ptr<Graph> parse(const char* src, ErrorList& errors) {
         // rename INIT => NEW
         if (n.type == Token::Type::Keyword) {
             const auto init = ctx.tokens.next(); // n = <INIT>
-            if (init.type != Token::Type::Ident) {
-                ctx.errors->list.push_back({ Error::Type::BadRename, init.span });
-                ctx.errors->fail = true;
-                return result;
-            }
+            EH_CHECK_RET(init, Ident, BadRename);
             n = ctx.tokens.next();
-            if (n.type != Token::Type::Arrow) {
-                ctx.errors->list.push_back({ Error::Type::BadRename, n.span });
-                ctx.errors->fail = true;
-                return result;
-            }
+            EH_CHECK_RET(n, Arrow, BadRename);
             const auto rend = ctx.tokens.next(); // n = <NEW>
-            if (rend.type != Token::Type::Ident) {
-                ctx.errors->list.push_back({ Error::Type::BadRename, rend.span });
-                ctx.errors->fail = true;
-                return result;
-            }
-            result->rename_table.emplace(std::pmr::string(rend.value, ctx.arena), std::pmr::string(init.value, ctx.arena));
+            EH_CHECK_RET(rend, Ident, BadRename);
+            result->rename_table.emplace(rend.value, init.value);
             n = ctx.tokens.next(); // FOLLOW(rename)
             continue;
         }
         // IDENT =
-        if (n.type != Token::Type::Ident) {
-            ctx.errors->list.push_back({ Error::Type::BadVertexBegin, n.span });
-            ctx.errors->fail = true;
-            return result;
-        }
+        EH_CHECK_RET(n, Ident, BadVertexBegin);
         const auto name = n;
         n = ctx.tokens.next();
-        if (n.type != Token::Type::SetEq) {
-            ctx.errors->list.push_back({ Error::Type::MisplacedToken, n.span });
-            ctx.errors->fail = true;
-            return result;
-        }
+        EH_CHECK_RET(n, SetEq, MisplacedToken);
 
         auto& vert = result->verts.emplace_back();
-        vert.first = std::pmr::string(name.value, ctx.arena);
-        if (contains_key(result->vert_names, vert.first)) SOFT_FAIL(name, MultiVertexName);
-        result->vert_names.emplace(std::pmr::string(name.value, ctx.arena), result->verts.size() - 1);
+        vert.first = name.value;
+        if (contains_key(result->vert_names, vert.first)) EH_FAIL_RET(name, MultiVertexName);
+        result->vert_names.emplace(name.value, result->verts.size() - 1);
         parse_vert_if_body(ctx, vert.second);
         if (ctx.errors->fail) return result;
         n = ctx.tokens.next();
     }
 
-    if (!contains_key(result->vert_names, "START")) SOFT_FAIL(n, NoEntryPoint);
+    if (!contains_key(result->vert_names, "START")) EH_FAIL_RET(n, NoEntryPoint);
     for (const auto& edge : ctx.edges) {
         if (edge.value == "START" || edge.value == "EXIT") continue;
-        const auto e = std::pmr::string(edge.value, ctx.arena);
+        const auto e = edge.value;
         if (!contains_key(result->vert_names, e)) {
-             SOFT_FAIL(edge, DanglingEdge);
+             EH_FAIL_RET(edge, DanglingEdge);
         }
     }
 
@@ -107,18 +91,18 @@ static void parse_vert(ParseContext& ctx, Vertex& result) {
     while (n.type == Token::Type::Lth) {
         // <IDENT:
         auto& line = result.lines.emplace_back();
-        line.lines = std::pmr::vector<std::pmr::string>( ctx.arena );
+        line.lines = std::pmr::vector<std::string_view>( ctx.arena );
         n = ctx.tokens.next();
-        CRIT_CHECK(n, Ident, Unknown);
-        line.speaker = std::pmr::string(n.value, ctx.arena);
+        EH_CHECK(n, Ident, Unknown);
+        line.speaker = n.value;
         n = ctx.tokens.next();
-        CRIT_CHECK(n, Colon, Unknown);
+        EH_CHECK(n, Colon, Unknown);
 
         // STRING,... >
         n = ctx.tokens.next();
         while (n.type != Token::Type::Gth) {
-            CRIT_CHECK(n, Strlit, Unknown);
-            line.lines.emplace_back(std::pmr::string(n.value, ctx.arena));
+            EH_CHECK(n, Strlit, Unknown);
+            line.lines.emplace_back(n.value);
             n = ctx.tokens.next();
             switch (n.type) {
             case Token::Type::Comma:
@@ -128,7 +112,7 @@ static void parse_vert(ParseContext& ctx, Vertex& result) {
                 goto endlines;
 
             default:
-                CRIT_FAIL(n, Unknown);
+                EH_FAIL(n, Unknown);
             }
         }
 endlines:
@@ -139,21 +123,21 @@ endlines:
     case Token::Type::Arrow:
         // => IDENT
         n = ctx.tokens.next();
-        CRIT_CHECK(n, Ident, Unknown);
-        result.next = std::pmr::string(n.value, ctx.arena);
+        EH_CHECK(n, Ident, Unknown);
+        result.next = n.value;
         ctx.edges.push_back(std::move(n));
         break;
     case Token::Type::OpenParen:
         // ( ... )
         result.edges = std::pmr::vector<EdgeBlock>(ctx.arena);
         parse_edge_if_body(ctx, result.edges, true);
-        PROP();
+        EH_PROP();
         n = ctx.tokens.next();
-        CRIT_CHECK(n, CloseParen, Unknown);
+        EH_CHECK(n, CloseParen, Unknown);
         break;
 
     default:
-        CRIT_FAIL(n, Unknown);
+        EH_FAIL(n, Unknown);
     }
 
     return;
@@ -166,19 +150,19 @@ static void parse_vert_if(ParseContext& ctx, VertexBlock::MyIfElse& result) {
 
         // if (EXPR) then
         n = ctx.tokens.peek();
-        CRIT_CHECK(n, OpenParen, Unknown);
+        EH_CHECK(n, OpenParen, Unknown);
         parse_expr(ctx, block->c);
-        PROP();
+        EH_PROP();
         n = ctx.tokens.next();
-        CRIT_CHECK(n, Keyword, Unknown);
-        if (n.value != "then") CRIT_FAIL(n, Unknown);
+        EH_CHECK(n, Keyword, Unknown);
+        if (n.value != "then") EH_FAIL(n, Unknown);
 
         block->b = std::pmr::vector<VertexBlock>(ctx.arena);
         parse_vert_if_body(ctx, block->b.emplace_back());
-        PROP();
+        EH_PROP();
 
         n = ctx.tokens.next();
-        CRIT_CHECK(n, Keyword, Unknown);
+        EH_CHECK(n, Keyword, Unknown);
         if (n.value == "else") {
             if (ctx.tokens.peek().value == "if") {
                 ctx.tokens.next();
@@ -187,17 +171,17 @@ static void parse_vert_if(ParseContext& ctx, VertexBlock::MyIfElse& result) {
                 result.catchall = std::pmr::vector<VertexBlock>(ctx.arena);
                 parse_vert_if_body(ctx, result.catchall->emplace_back());
                 n = ctx.tokens.next();
-                CRIT_CHECK(n, Keyword, Unknown);
-                if (n.value != "end") CRIT_FAIL(n, Unknown);
+                EH_CHECK(n, Keyword, Unknown);
+                if (n.value != "end") EH_FAIL(n, Unknown);
                 return;
             }
         } else if (n.value == "end") {
-            SOFT_FAIL(n, NoElse);
+            EH_FAIL(n, NoElse);
             return;
         }
     }
 
-    CRIT_FAIL(n, EarlyEof);
+    EH_FAIL(n, EarlyEof);
 }
 static void parse_vert_if_body(ParseContext& ctx, VertexBlock& result) {
     auto n = ctx.tokens.peek();
@@ -217,7 +201,7 @@ static void parse_vert_if_body(ParseContext& ctx, VertexBlock& result) {
         break;
 
     default:
-        CRIT_FAIL(n, Unknown);
+        EH_FAIL(n, Unknown);
     }
 
     return;
@@ -228,81 +212,81 @@ static void parse_vert_match(ParseContext& ctx, VertexBlock::MyMatch& result) {
 
     // match (EXPR) with
     n = ctx.tokens.peek();
-    CRIT_CHECK(n, OpenParen, Unknown);
+    EH_CHECK(n, OpenParen, Unknown);
     parse_expr(ctx, result.ex);
-    PROP();
+    EH_PROP();
     n = ctx.tokens.next();
-    CRIT_CHECK(n, Keyword, Unknown);
-    if (n.value != "with") CRIT_FAIL(n, Unknown);
+    EH_CHECK(n, Keyword, Unknown);
+    if (n.value != "with") EH_FAIL(n, Unknown);
 
     n = ctx.tokens.next();
     while (n.type != Token::Type::Eof) {
         switch (n.type) {
         case Token::Type::Keyword:
-            if (n.value != "end") CRIT_FAIL(n, Unknown);
-            if (!has_catchall)    SOFT_FAIL(n, NoCatchall);
+            if (n.value != "end") EH_FAIL(n, Unknown);
+            if (!has_catchall)    EH_FAIL(n, NoCatchall);
             return;
 
         case Token::Type::OpenParen: {
             Vertex* arm_vert;
             if (ctx.tokens.peek().type == Token::Type::CatchAll) {
                 ctx.tokens.next();
-                if (has_catchall) CRIT_FAIL(n, Unknown);
+                if (has_catchall) EH_FAIL(n, Unknown);
                 result.catchall = Vertex();
                 arm_vert = &result.catchall.value();
                 has_catchall = true;
                 n = ctx.tokens.next();
-                CRIT_CHECK(n, CloseParen, Unknown);
+                EH_CHECK(n, CloseParen, Unknown);
             } else {
                 auto& arm = result.arms.emplace_back();
                 parse_value(ctx, arm.c);
                 n = ctx.tokens.next();
-                CRIT_CHECK(n, CloseParen, Unknown);
+                EH_CHECK(n, CloseParen, Unknown);
                 arm_vert = &arm.b;
             }
-            PROP();
+            EH_PROP();
             n = ctx.tokens.peek();
-            CRIT_CHECK(n, Lth, Unknown);
+            EH_CHECK(n, Lth, Unknown);
             parse_vert(ctx, *arm_vert);
-            PROP();
+            EH_PROP();
             break; }
 
         default:
-            CRIT_FAIL(n, Unknown);
+            EH_FAIL(n, Unknown);
             break;
         }
         n = ctx.tokens.next();
     }
 
-    CRIT_FAIL(n, EarlyEof);
+    EH_FAIL(n, EarlyEof);
 }
 
 static void parse_edge(ParseContext& ctx, Edge& result) {
     // STRING :: (EFFECT) => IDENT
     auto n = ctx.tokens.next();
-    CRIT_CHECK(n, Strlit, Unknown);
-    result.line = std::pmr::string(n.value, ctx.arena);
+    EH_CHECK(n, Strlit, Unknown);
+    result.line = n.value;
     n = ctx.tokens.next();
     switch (n.type) {
     case Token::Type::Join:
         result.effect = Effect();
         parse_effect(ctx, *result.effect);
-        PROP();
+        EH_PROP();
         n = ctx.tokens.next();
-        CRIT_CHECK(n, CloseParen, Unknown);
+        EH_CHECK(n, CloseParen, Unknown);
         n = ctx.tokens.next();
-        CRIT_CHECK(n, Arrow, Unknown);
+        EH_CHECK(n, Arrow, Unknown);
         break;
 
     case Token::Type::Arrow:
         break;
 
     default:
-        CRIT_FAIL(n, Unknown);
+        EH_FAIL(n, Unknown);
     }
     n = ctx.tokens.next();
-    CRIT_CHECK(n, Ident, Unknown);
-    result.next = std::pmr::string(n.value, ctx.arena);
+    EH_CHECK(n, Ident, Unknown);
+    result.next = n.value;
     ctx.edges.push_back(std::move(n));
 }
 static void parse_edge_if(ParseContext& ctx, EdgeBlock::MyIfElse& result) {
@@ -315,19 +299,19 @@ static void parse_edge_if(ParseContext& ctx, EdgeBlock::MyIfElse& result) {
 
         // if (EXPR) then
         n = ctx.tokens.peek();
-        CRIT_CHECK(n, OpenParen, Unknown);
+        EH_CHECK(n, OpenParen, Unknown);
         parse_expr(ctx, block->c);
-        PROP();
+        EH_PROP();
         n = ctx.tokens.next();
-        CRIT_CHECK(n, Keyword, Unknown);
-        if (n.value != "then") CRIT_FAIL(n, Unknown);
+        EH_CHECK(n, Keyword, Unknown);
+        if (n.value != "then") EH_FAIL(n, Unknown);
 
         block->b = std::pmr::vector<EdgeBlock>(ctx.arena);
         parse_edge_if_body(ctx, block->b, false);
-        PROP();
+        EH_PROP();
 
         n = ctx.tokens.next();
-        CRIT_CHECK(n, Keyword, Unknown);
+        EH_CHECK(n, Keyword, Unknown);
         if (n.value == "else") {
             if (ctx.tokens.peek().value == "if") {
                 ctx.tokens.next();
@@ -335,10 +319,10 @@ static void parse_edge_if(ParseContext& ctx, EdgeBlock::MyIfElse& result) {
             } else {
                 result.catchall = std::pmr::vector<EdgeBlock>(ctx.arena);
                 parse_edge_if_body(ctx, *result.catchall, false);
-                PROP();
+                EH_PROP();
                 n = ctx.tokens.next();
-                CRIT_CHECK(n, Keyword, Unknown);
-                if (n.value != "end") CRIT_FAIL(n, Unknown);
+                EH_CHECK(n, Keyword, Unknown);
+                if (n.value != "end") EH_FAIL(n, Unknown);
                 return;
             }
         } else if (n.value == "end") {
@@ -346,7 +330,7 @@ static void parse_edge_if(ParseContext& ctx, EdgeBlock::MyIfElse& result) {
         }
     }
 
-    CRIT_FAIL(n, EarlyEof);
+    EH_FAIL(n, EarlyEof);
 }
 static void parse_edge_if_body(ParseContext& ctx, std::pmr::vector<EdgeBlock>& result, bool top) {
     bool last_was_edge = false;
@@ -359,7 +343,7 @@ static void parse_edge_if_body(ParseContext& ctx, std::pmr::vector<EdgeBlock>& r
             if (top) {
                 return;
             } else {
-                CRIT_FAIL(n, Unknown);
+                EH_FAIL(n, Unknown);
             }
             break;
         case Token::Type::Keyword:
@@ -375,7 +359,7 @@ static void parse_edge_if_body(ParseContext& ctx, std::pmr::vector<EdgeBlock>& r
                 if (!top) {
                     return;
                 } else {
-                    CRIT_FAIL(n, Unknown);
+                    EH_FAIL(n, Unknown);
                 }
             }
             last_was_edge = false;
@@ -392,13 +376,13 @@ static void parse_edge_if_body(ParseContext& ctx, std::pmr::vector<EdgeBlock>& r
             break;
 
         default:
-            CRIT_FAIL(n, Unknown);
+            EH_FAIL(n, Unknown);
         }
 
-        PROP();
+        EH_PROP();
     }
 
-    CRIT_FAIL(n, EarlyEof);
+    EH_FAIL(n, EarlyEof);
 }
 static void parse_edge_match(ParseContext& ctx, Match<Edge>& result) {
     result.arms = std::pmr::vector<Match<Edge>::Arm>( ctx.arena );
@@ -408,52 +392,52 @@ static void parse_edge_match(ParseContext& ctx, Match<Edge>& result) {
 
     // match (EXPR) with
     n = ctx.tokens.peek();
-    CRIT_CHECK(n, OpenParen, Unknown);
+    EH_CHECK(n, OpenParen, Unknown);
     parse_expr(ctx, result.ex);
-    PROP();
+    EH_PROP();
     n = ctx.tokens.next();
-    CRIT_CHECK(n, Keyword, Unknown);
-    if (n.value != "with") CRIT_FAIL(n, Unknown);
+    EH_CHECK(n, Keyword, Unknown);
+    if (n.value != "with") EH_FAIL(n, Unknown);
 
     n = ctx.tokens.next();
     while (n.type != Token::Type::Eof) {
         switch (n.type) {
         case Token::Type::Keyword:
-            if (n.value != "end") CRIT_FAIL(n, Unknown);
+            if (n.value != "end") EH_FAIL(n, Unknown);
             return;
 
         case Token::Type::OpenParen: {
             Edge* arm_es;
             if (ctx.tokens.peek().type == Token::Type::CatchAll) {
-                if (has_catchall) CRIT_FAIL(n, Unknown);
+                if (has_catchall) EH_FAIL(n, Unknown);
                 ctx.tokens.next();
                 result.catchall = Edge();
                 arm_es = &result.catchall.value();
                 has_catchall = true;
                 n = ctx.tokens.next();
-                CRIT_CHECK(n, CloseParen, Unknown);
+                EH_CHECK(n, CloseParen, Unknown);
             } else {
                 auto& arm = result.arms.emplace_back();
                 parse_value(ctx, arm.c);
                 n = ctx.tokens.next();
-                CRIT_CHECK(n, CloseParen, Unknown);
+                EH_CHECK(n, CloseParen, Unknown);
                 arm_es = &arm.b;
             }
-            PROP();
+            EH_PROP();
             n = ctx.tokens.peek();
-            CRIT_CHECK(n, Strlit, Unknown);
+            EH_CHECK(n, Strlit, Unknown);
             parse_edge(ctx, *arm_es);
-            PROP();
+            EH_PROP();
             break; }
 
         default:
-            CRIT_FAIL(n, Unknown);
+            EH_FAIL(n, Unknown);
             break;
         }
         n = ctx.tokens.next();
     }
 
-    CRIT_FAIL(n, EarlyEof);
+    EH_FAIL(n, EarlyEof);
 }
 static void parse_effect(ParseContext& ctx, Effect& result) {
     // TODO

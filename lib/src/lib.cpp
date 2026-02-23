@@ -3,6 +3,7 @@
 #include "quosi/bc.h"
 #include <fstream>
 #include <cstdlib>
+#include <iostream>
 
 
 namespace quosi {

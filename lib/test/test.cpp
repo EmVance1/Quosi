@@ -26,6 +26,12 @@ vango_test(compiler) {
     const auto src = read_to_string("../examples/basic.qsi");
     auto errors = quosi::ErrorList();
     const auto file = quosi::File::compile_from_src(src.c_str(), errors);
+    if (!errors.list.empty()) {
+        for (const auto& e : errors.list) {
+            std::cout << "(" << e.span.row << ":" << e.span.col << ") " << e.to_string() << "\n";
+        }
+        vg_assert(false);
+    }
     file.prettyprint();
 }
 
@@ -33,6 +39,12 @@ vango_test(fileio) {
     const auto src = read_to_string("../examples/basic.qsi");
     auto errors = quosi::ErrorList();
     const auto f1 = quosi::File::compile_from_src(src.c_str(), errors);
+    if (!errors.list.empty()) {
+        for (const auto& e : errors.list) {
+            std::cout << "(" << e.span.row << ":" << e.span.col << ") " << e.to_string() << "\n";
+        }
+        vg_assert(false);
+    }
     f1.write_to_file("../examples/basic.bsi");
     const auto f2 = quosi::File::load_from_file("../examples/basic.bsi");
     f2.prettyprint();
@@ -89,7 +101,12 @@ vango_test(bench_parser) {
         graph = quosi::ast::parse(src.c_str(), errors);
     });
 
-    std::cout << "proof: " << errors.list.size() << "\n";
+    if (!errors.list.empty()) {
+        for (const auto& e : errors.list) {
+            std::cout << "(" << e.span.row << ":" << e.span.col << ") " << e.to_string() << "\n";
+        }
+        vg_assert(false);
+    }
 }
 
 vango_test(bench_codegen) {
@@ -108,7 +125,12 @@ vango_test(bench_codegen) {
         file = quosi::File::compile_from_ast(*graph);
     });
 
-    std::cout << "proof: " << errors.list.size() << "\n";
+    if (!errors.list.empty()) {
+        for (const auto& e : errors.list) {
+            std::cout << "(" << e.span.row << ":" << e.span.col << ") " << e.to_string() << "\n";
+        }
+        vg_assert(false);
+    }
 }
 
 vango_test(bench_compiler) {
@@ -126,6 +148,11 @@ vango_test(bench_compiler) {
         file = quosi::File::compile_from_src(src.c_str(), errors);
     });
 
-    std::cout << "proof: " << errors.list.size() << "\n";
+    if (!errors.list.empty()) {
+        for (const auto& e : errors.list) {
+            std::cout << "(" << e.span.row << ":" << e.span.col << ") " << e.to_string() << "\n";
+        }
+        vg_assert(false);
+    }
 }
 

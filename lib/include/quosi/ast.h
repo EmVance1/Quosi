@@ -12,7 +12,7 @@ namespace quosi { namespace ast {
 
 struct Expr {
     std::variant<
-        std::pmr::string, // identifier
+        std::string_view, // identifier
         uint64_t,         // immediate
         bc::Instr         // operation => implies child nodes
     > value;
@@ -22,8 +22,8 @@ struct Expr {
 using Effect = std::variant<std::pmr::string, Expr>;
 
 struct Edge {
-    std::pmr::string line;
-    std::pmr::string next;
+    std::string_view line;
+    std::string_view next;
     std::optional<Effect> effect;
 };
 
@@ -64,14 +64,14 @@ struct EdgeBlock {
 };
 
 struct LineSet {
-    std::pmr::string speaker;
-    std::pmr::vector<std::pmr::string> lines;
+    std::string_view speaker;
+    std::pmr::vector<std::string_view> lines;
 };
 
 struct Vertex {
     std::pmr::vector<LineSet> lines;
     std::pmr::vector<EdgeBlock> edges;
-    std::pmr::string next;
+    std::string_view next;
 };
 
 struct VertexBlock {
@@ -91,9 +91,9 @@ struct Graph {
     std::pmr::monotonic_buffer_resource arena;
 
     std::pmr::string name;
-    std::pmr::unordered_map<std::pmr::string, size_t> vert_names;
-    std::pmr::vector<std::pair<std::pmr::string, VertexBlock>> verts;
-    std::pmr::unordered_map<std::pmr::string, std::pmr::string> rename_table;
+    std::pmr::unordered_map<std::string_view, size_t> vert_names;
+    std::pmr::vector<std::pair<std::string_view, VertexBlock>> verts;
+    std::pmr::unordered_map<std::string_view, std::string_view> rename_table;
 };
 
 }

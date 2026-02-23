@@ -29,6 +29,7 @@ struct Error {
     Span span;
 
     std::string to_string() const;
+    bool is_critical() const;
 };
 
 struct ErrorList {

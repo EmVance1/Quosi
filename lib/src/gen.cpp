@@ -20,10 +20,10 @@ struct GenContext {
 
     std::pmr::memory_resource* arena;
     std::pmr::unordered_map<std::pmr::string, u32> labels;
-    std::pmr::unordered_map<std::pmr::string, u32> symbols;
+    std::pmr::unordered_map<std::string_view, u32> symbols;
     std::pmr::vector<LabelTarget> jumps;
     std::pmr::vector<LabelTarget> strings;
-    std::pmr::vector<std::pmr::string> edges;
+    std::pmr::vector<std::string_view> edges;
     SymbolContext symbol_ctx;
     u8 current_edge_index = 0;
     size_t label_index = 0;
@@ -31,18 +31,19 @@ struct GenContext {
 };
 
 static std::pmr::string gen_label(GenContext& ctx) {
+    auto tmp = ctx.label_index++;
+    if (tmp == 0) return std::pmr::string(".0", ctx.arena);
     auto sym = std::pmr::string(".", ctx.arena);
-    auto tmp = ctx.label_index;
     while (tmp > 0) {
         sym.push_back('0' + (tmp % 10));
         tmp /= 10;
     }
-    ctx.label_index++;
     return sym;
 }
-static uint32_t resolve_sym(GenContext& ctx, const std::pmr::string& sym) {
+static uint32_t resolve_sym(GenContext& ctx, std::string_view sym) {
     if (ctx.symbol_ctx) {
-        return ctx.symbol_ctx(sym.c_str());
+        const auto cpy = std::pmr::string(sym, ctx.arena);
+        return ctx.symbol_ctx(cpy.c_str());
     } else {
         auto it = ctx.symbols.find(sym);
         if (it == ctx.symbols.end()) {
@@ -62,7 +63,7 @@ static void compile_expr(GenContext& ctx, const Expr& e, bool ieq = false) {
     switch (e.value.index()) {
     case 0:
         ctx.result.push((byte)(ieq ? Instr::IeqK : Instr::Load));
-        ctx.result.push(resolve_sym(ctx, std::get<std::pmr::string>(e.value)));
+        ctx.result.push(resolve_sym(ctx, std::get<std::string_view>(e.value)));
         break;
     case 1:
         ctx.result.push((byte)(ieq ? Instr::IeqV : Instr::Push));
@@ -181,7 +182,7 @@ static void compile_vblock(GenContext& ctx, const VertexBlock& b) {
 }
 static void compile_edge(GenContext& ctx, const Edge& e) {
     ctx.result.push((byte)Instr::Prop);
-    ctx.strings.push_back({ (u32)ctx.result.size(), e.line });
+    ctx.strings.push_back({ (u32)ctx.result.size(), std::pmr::string(e.line, ctx.arena) });
     ctx.result.push((u32)0);
     ctx.result.push((u8)0);
     ctx.result.last() = ctx.current_edge_index++;
@@ -191,7 +192,7 @@ static void compile_vertex(GenContext& ctx, const Vertex& v) {
     for (const auto& lvec : v.lines) {
         for (const auto& line : lvec.lines) {
             ctx.result.push((byte)Instr::Line);
-            ctx.strings.push_back({ (u32)(ctx.result.size() + sizeof(u32)), line });
+            ctx.strings.push_back({ (u32)(ctx.result.size() + sizeof(u32)), std::pmr::string(line, ctx.arena) });
             ctx.result.push(resolve_sym(ctx, lvec.speaker)); // speaker ID
             ctx.result.push((u32)0); // line
         }
@@ -199,7 +200,7 @@ static void compile_vertex(GenContext& ctx, const Vertex& v) {
 
     if (v.edges.empty()) {
         ctx.result.push((byte)Instr::Jump);
-        ctx.jumps.push_back({ (u32)ctx.result.size(), v.next });
+        ctx.jumps.push_back({ (u32)ctx.result.size(), std::pmr::string(v.next, ctx.arena) });
         ctx.result.push((u32)0);
     } else {
         ctx.current_edge_index = 0;
@@ -210,7 +211,7 @@ static void compile_vertex(GenContext& ctx, const Vertex& v) {
         ctx.result.push((byte)Instr::Pick);
         ctx.result.push((byte)Instr::Switch);
         for (size_t i = 0; i < ctx.edges.size(); i++) {
-            ctx.jumps.push_back({ (u32)ctx.result.size(), ctx.edges[i] });
+            ctx.jumps.push_back({ (u32)ctx.result.size(), std::pmr::string(ctx.edges[i], ctx.arena) });
             ctx.result.push((u32)0);
         }
     }
@@ -227,10 +228,10 @@ ProgramData compile_ast(const Graph& graph, SymbolContext symctx) {
         ByteVec(256),
         &arena,
         std::pmr::unordered_map<std::pmr::string, u32>( &arena ),
-        std::pmr::unordered_map<std::pmr::string, u32>( &arena ),
+        std::pmr::unordered_map<std::string_view, u32>( &arena ),
         std::pmr::vector<LabelTarget>( &arena ),
         std::pmr::vector<LabelTarget>( &arena ),
-        std::pmr::vector<std::pmr::string>( &arena ),
+        std::pmr::vector<std::string_view>( &arena ),
         symctx
     };
 
@@ -289,7 +290,7 @@ ProgramData compile_ast(const Graph& graph, SymbolContext symctx) {
 
     /* jump patching */
     for (const auto& j : ctx.jumps) {
-        memcpy(ctx.result.data + j.pos, &ctx.labels.at(j.target), sizeof(u32));
+        memcpy(ctx.result.data + j.pos, &ctx.labels.at(std::pmr::string(j.target, ctx.arena)), sizeof(u32));
     }
 
     auto result = ProgramData{
