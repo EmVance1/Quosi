@@ -1,0 +1,8 @@
+*/bin/
+*/compile_flags.txt
+*/*.raddbg_project
+examples/*.bsi
+examples/*.shmy
+examples/*.qsi2
+examples/*.qsi3
+
