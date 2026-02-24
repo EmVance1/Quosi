@@ -16,6 +16,7 @@ struct Error {
         Unknown = 0,
         EarlyEof,
         MisplacedToken,
+        BadGraphBegin,
         BadVertexBegin,
         BadRename,
         NoElse,

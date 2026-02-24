@@ -22,7 +22,7 @@ static bool is_space(char c, bool* wasnull) {
 }
 static bool is_keyword(std::string_view str) {
     static std::unordered_set<std::string_view> kws = {
-        "if", "then", "else", "match", "with", "end", "true", "false", "rename"
+        "if", "then", "else", "match", "with", "end", "true", "false", "rename", "module", "endmod"
     };
     return kws.find(str) != kws.end();
 }

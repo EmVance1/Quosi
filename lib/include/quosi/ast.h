@@ -88,12 +88,15 @@ struct VertexBlock {
 };
 
 struct Graph {
-    std::pmr::monotonic_buffer_resource arena;
-
-    std::pmr::string name;
     std::pmr::unordered_map<std::string_view, size_t> vert_names;
     std::pmr::vector<std::pair<std::string_view, VertexBlock>> verts;
     std::pmr::unordered_map<std::string_view, std::string_view> rename_table;
+};
+
+struct Ast {
+    std::pmr::monotonic_buffer_resource arena;
+
+    std::pmr::unordered_map<std::string_view, Graph> graphs;
 };
 
 }
@@ -103,6 +106,6 @@ class TokenStream;
 
 namespace ast {
 
-std::unique_ptr<Graph> parse(const char* src, ErrorList& errors);
+std::unique_ptr<Ast> parse(const char* src, ErrorList& errors);
 
 } }

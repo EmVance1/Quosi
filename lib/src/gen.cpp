@@ -160,7 +160,7 @@ static void compile_vblock(GenContext& ctx, const VertexBlock& b) {
         compile_expr(ctx, mc->ex);
         for (size_t i = 0; i < mc->arms.size(); i++) {
             const auto next_lbl = gen_label(ctx);
-            compile_expr(ctx, mc->arms[i].c);
+            compile_expr(ctx, mc->arms[i].c, true);
 
             ctx.result.push((byte)Instr::Jz);
             ctx.jumps.push_back({ (u32)ctx.result.size(), next_lbl });
@@ -222,7 +222,7 @@ ProgramData::~ProgramData() {
     free(data);
 }
 
-ProgramData compile_ast(const Graph& graph, SymbolContext symctx) {
+ProgramData compile_ast(const Ast& ast, SymbolContext symctx) {
     auto arena = std::pmr::monotonic_buffer_resource();
     auto ctx = GenContext{
         ByteVec(256),
@@ -239,23 +239,24 @@ ProgramData compile_ast(const Graph& graph, SymbolContext symctx) {
     ctx.labels["START"] = 0;
     ctx.labels["EXIT"]  = UINT32_MAX;
     ctx.labels["ABORT"] = UINT32_MAX-1;
-    compile_vblock(ctx, graph.verts[graph.vert_names.at("START")].second);
-    for (const auto& [k, vert] : graph.verts) {
-        if (k == "START") continue;
-        const auto pos = (u32)ctx.result.size();
-        ctx.labels.emplace(k, pos);
-        compile_vblock(ctx, vert);
+    for (const auto& [name, graph] : ast.graphs) {
+        compile_vblock(ctx, graph.verts[graph.vert_names.at("START")].second);
+        for (const auto& [k, vert] : graph.verts) {
+            if (k == "START") continue;
+            const auto pos = (u32)ctx.result.size();
+            ctx.labels.emplace(k, pos);
+            compile_vblock(ctx, vert);
+        }
+        ctx.result.push((byte)Instr::Eof);
     }
-    ctx.result.push((byte)Instr::Eof);
 
     const auto strloc = ctx.result.size();
     /* string patching */
     for (const auto&  v : ctx.strings) {
         const auto pos = (u32)ctx.result.size();
         memcpy(ctx.result.data + v.pos, &pos, sizeof(u32));
-        // bool esc = false;
+        bool esc = false;
         for (auto c : v.target) {
-            /*
             if (esc) {
                 switch (c) {
                 case 'n':  ctx.result.push('\n'); break;
@@ -270,8 +271,6 @@ ProgramData compile_ast(const Graph& graph, SymbolContext symctx) {
                     ctx.result.push(c);
                 }
             }
-            */
-            ctx.result.push(c);
         }
         ctx.result.push((u8)0);
     }

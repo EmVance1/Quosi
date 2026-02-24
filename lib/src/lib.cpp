@@ -39,16 +39,16 @@ File& File::operator=(File&& other) noexcept {
 
 
 File File::compile_from_src(const char* src, ErrorList& errors, SymbolContext ctx) {
-    const auto graph = ast::parse(src, errors);
+    const auto ast = ast::parse(src, errors);
     if (errors.list.empty()) {
-        return compile_from_ast(*graph, ctx);
+        return compile_from_ast(*ast, ctx);
     } else {
         return File(nullptr, true);
     }
 }
 
-File File::compile_from_ast(const ast::Graph& graph, SymbolContext ctx) {
-    const auto pdata = bc::compile_ast(graph, ctx);
+File File::compile_from_ast(const ast::Ast& ast, SymbolContext ctx) {
+    const auto pdata = bc::compile_ast(ast, ctx);
     const auto size = (size_t)(sizeof(File::Header) + pdata.header.data_len);
     auto result = File((FileImplT*)malloc((size_t)size), true);
     memcpy((char*)result.m_impl, &pdata.header, sizeof(File::Header));

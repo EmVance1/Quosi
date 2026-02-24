@@ -2,7 +2,7 @@
 #include "quosi/quosi.h"
 #include <cstdint>
 
-namespace quosi::ast { struct Graph; }
+namespace quosi::ast { struct Ast; }
 
 namespace quosi::bc {
 
@@ -48,7 +48,7 @@ struct ProgramData {
 
     ~ProgramData();
 };
-ProgramData compile_ast(const ast::Graph& graph, SymbolContext ctx = nullptr);
+ProgramData compile_ast(const ast::Ast& ast, SymbolContext ctx = nullptr);
 void prettyprint(const uint8_t* code, size_t size);
 
 }

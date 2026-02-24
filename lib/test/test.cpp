@@ -89,16 +89,16 @@ vango_test(bench_parser) {
     std::cin.get();
     const auto src = read_to_string("../examples/basic.qsi");
     auto errors = quosi::ErrorList();
-    auto graph = std::unique_ptr<quosi::ast::Graph>();
+    auto ast = std::unique_ptr<quosi::ast::Ast>();
 
     vango_bench(100, [&](){
-        graph = quosi::ast::parse(src.c_str(), errors);
+        ast = quosi::ast::parse(src.c_str(), errors);
     });
     vango_bench(1000, [&](){
-        graph = quosi::ast::parse(src.c_str(), errors);
+        ast = quosi::ast::parse(src.c_str(), errors);
     });
     vango_bench(10000, [&](){
-        graph = quosi::ast::parse(src.c_str(), errors);
+        ast = quosi::ast::parse(src.c_str(), errors);
     });
 
     if (!errors.list.empty()) {

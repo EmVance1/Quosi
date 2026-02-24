@@ -3,6 +3,7 @@
 #include "quosi/bc.h"
 #include "lex.h"
 #include "expr.h"
+#include <unordered_map>
 // #include <iostream>
 
 namespace quosi::ast {
@@ -20,6 +21,7 @@ using namespace bc;
 #define EH_CHECK_RET(tok, T, E) do { if (tok.type != Token::Type::T) { EH_FAIL_RET(tok, E); } } while (0)
 #define EH_PROP_RET() do { if (ctx.errors->fail) return result; } while (0)
 
+static void parse_graph(ParseContext& ctx, Graph& result);
 static void parse_vert(ParseContext& ctx, Vertex& result);
 static void parse_vert_if(ParseContext& ctx, VertexBlock::MyIfElse& result);
 static void parse_vert_if_body(ParseContext& ctx, VertexBlock& result);
@@ -33,54 +35,81 @@ static void parse_effect(ParseContext& ctx, Effect& result);
 #define contains_key(map, key) (map.find(key) != map.end())
 
 
-std::unique_ptr<Graph> parse(const char* src, ErrorList& errors) {
-    auto result = std::make_unique<Graph>();
+std::unique_ptr<Ast> parse(const char* src, ErrorList& errors) {
+    auto result = std::make_unique<Ast>();
     auto ctx = ParseContext{
         &result->arena,
         TokenStream(src),
         &errors,
         std::pmr::vector<Token>(&result->arena),
     };
+    result->graphs = std::pmr::unordered_map<std::string_view, Graph>(ctx.arena);
+
+    auto n = ctx.tokens.next();
+
+    while (n.type != Token::Type::Eof) {
+        // module NAME
+        EH_CHECK_RET(n, Keyword, BadGraphBegin);
+        if (n.value != "module") EH_FAIL_RET(n, BadGraphBegin);
+        const auto name = ctx.tokens.next();
+        EH_CHECK_RET(name, Ident, BadGraphBegin);
+
+        result->graphs.emplace(name.value, Graph());
+        parse_graph(ctx, result->graphs[name.value]);
+        EH_PROP_RET();
+        n = ctx.tokens.next();
+    }
+
+    return result;
+}
+
+void parse_graph(ParseContext& ctx, Graph& result) {
+    result.vert_names = std::pmr::unordered_map<std::string_view, size_t>(ctx.arena);
+    result.verts = std::pmr::vector<std::pair<std::string_view, VertexBlock>>(ctx.arena);
+    result.rename_table = std::pmr::unordered_map<std::string_view, std::string_view>(ctx.arena);
+
     auto n = ctx.tokens.next();
 
     while (n.type != Token::Type::Eof) {
         // rename INIT => NEW
         if (n.type == Token::Type::Keyword) {
+            if (n.value == "endmod") return;
+            else if (n.value != "rename") EH_FAIL(n, BadVertexBegin);
             const auto init = ctx.tokens.next(); // n = <INIT>
-            EH_CHECK_RET(init, Ident, BadRename);
+            EH_CHECK(init, Ident, BadRename);
             n = ctx.tokens.next();
-            EH_CHECK_RET(n, Arrow, BadRename);
+            EH_CHECK(n, Arrow, BadRename);
             const auto rend = ctx.tokens.next(); // n = <NEW>
-            EH_CHECK_RET(rend, Ident, BadRename);
-            result->rename_table.emplace(rend.value, init.value);
+            EH_CHECK(rend, Ident, BadRename);
+            result.rename_table.emplace(rend.value, init.value);
             n = ctx.tokens.next(); // FOLLOW(rename)
             continue;
         }
         // IDENT =
-        EH_CHECK_RET(n, Ident, BadVertexBegin);
+        EH_CHECK(n, Ident, BadVertexBegin);
         const auto name = n;
         n = ctx.tokens.next();
-        EH_CHECK_RET(n, SetEq, MisplacedToken);
+        EH_CHECK(n, SetEq, MisplacedToken);
 
-        auto& vert = result->verts.emplace_back();
+        auto& vert = result.verts.emplace_back();
         vert.first = name.value;
-        if (contains_key(result->vert_names, vert.first)) EH_FAIL_RET(name, MultiVertexName);
-        result->vert_names.emplace(name.value, result->verts.size() - 1);
+        if (contains_key(result.vert_names, vert.first)) EH_FAIL(name, MultiVertexName);
+        result.vert_names.emplace(name.value, result.verts.size() - 1);
         parse_vert_if_body(ctx, vert.second);
-        if (ctx.errors->fail) return result;
+        EH_PROP();
         n = ctx.tokens.next();
     }
 
-    if (!contains_key(result->vert_names, "START")) EH_FAIL_RET(n, NoEntryPoint);
+    if (!contains_key(result.vert_names, "START")) EH_FAIL(n, NoEntryPoint);
     for (const auto& edge : ctx.edges) {
         if (edge.value == "START" || edge.value == "EXIT") continue;
         const auto e = edge.value;
-        if (!contains_key(result->vert_names, e)) {
-             EH_FAIL_RET(edge, DanglingEdge);
+        if (!contains_key(result.vert_names, e)) {
+             EH_FAIL(edge, DanglingEdge);
         }
     }
 
-    return result;
+    EH_FAIL(n, EarlyEof);
 }
 
 static void parse_vert(ParseContext& ctx, Vertex& result) {

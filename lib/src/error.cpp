@@ -11,6 +11,8 @@ std::string Error::to_string() const {
         return "end of file encountered abruptly";
     case Type::MisplacedToken:
         return "unexpected token encountered";
+    case Type::BadGraphBegin:
+        return "expected 'module' declaration";
     case Type::BadVertexBegin:
         return "expected node or 'rename' declaration";
     case Type::BadRename:
@@ -41,6 +43,8 @@ bool Error::is_critical() const {
     case Type::EarlyEof:
         return true;
     case Type::MisplacedToken:
+        return true;
+    case Type::BadGraphBegin:
         return true;
     case Type::BadVertexBegin:
         return true;

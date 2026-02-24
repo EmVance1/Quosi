@@ -6,7 +6,7 @@
 
 namespace quosi {
 
-namespace ast { struct Graph; }
+namespace ast { struct Ast; }
 
 using SymbolContext = uint32_t(*)(const char* key);
 
@@ -39,7 +39,7 @@ public:
     File& operator=(File&&) noexcept;
 
     static File compile_from_src(const char* src, ErrorList& errors, SymbolContext ctx = nullptr);
-    static File compile_from_ast(const ast::Graph& graph, SymbolContext ctx = nullptr);
+    static File compile_from_ast(const ast::Ast& ast, SymbolContext ctx = nullptr);
     static File load_from_file(const std::filesystem::path& path);
     static File init_from_raw(void* bin, bool manage = true);
 
