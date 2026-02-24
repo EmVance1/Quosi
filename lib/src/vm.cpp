@@ -196,10 +196,9 @@ VirtualMachine::UpCall VirtualMachine::step(Context ctx) {
         PC += sizeof(u32);
         return UpCall::Line;
     case bc::Instr::Event: {
-        IProp p;
-        memcpy(&p, code + PC, sizeof(u32) + sizeof(u8));
-        PC += sizeof(u32) + sizeof(u8);
-        enq_iprop(p);
+        memcpy(&B, code + PC, sizeof(u32));
+        PC += sizeof(u32);
+        return UpCall::Event;
         break; }
     }
     return UpCall::NONE;

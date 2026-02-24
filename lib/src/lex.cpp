@@ -80,7 +80,6 @@ Token TokenStream::step() {
                 case '{': return Token{ Token::Type::OpenBrace,  std::string_view(tbeg, 1), tspan };
                 case '}': return Token{ Token::Type::CloseBrace, std::string_view(tbeg, 1), tspan };
                 case ',': return Token{ Token::Type::Comma,      std::string_view(tbeg, 1), tspan };
-                // case ':': return Token{ Token::Type::Colon,      std::string_view(tbeg, 1), tspan };
                 case '+': case '-': case '*': case '/': case '<': case '>': case '=': case '!': case '&': case '|': case ':':
                     state = State::Symbol; break;
                 case '"':

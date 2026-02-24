@@ -50,7 +50,6 @@ int main(int argc, char** argv) {
             std::cout << "[qdbg] file not found\n\n";
             return 1;
         }
-        std::cout << src << "\n";
         auto errors = quosi::ErrorList();
         file = quosi::File::compile_from_src(src.c_str(), errors);
         if (!errors.list.empty()) {
@@ -94,6 +93,7 @@ int main(int argc, char** argv) {
                 vm.push(pindex[pick-1]);
                 break; }
             case quosi::VirtualMachine::UpCall::Event:
+                std::cout << "EVENT: " << vm.line() << "\n\n";
                 break;
             case quosi::VirtualMachine::UpCall::Exit:
                 quit = true;

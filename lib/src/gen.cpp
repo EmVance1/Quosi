@@ -1,6 +1,6 @@
 #include "quosi/quosi.h"
-#include "quosi/bc.h"
 #include "quosi/ast.h"
+#include "quosi/bc.h"
 #include "bytevec.h"
 #include "num.h"
 #include <memory_resource>
@@ -14,6 +14,10 @@ struct LabelTarget {
     u32 pos;
     std::pmr::string target;
 };
+struct EffectTarget {
+    const Edge* edge;
+    std::pmr::string target;
+};
 
 struct GenContext {
     ByteVec result;
@@ -23,7 +27,7 @@ struct GenContext {
     std::pmr::unordered_map<std::string_view, u32> symbols;
     std::pmr::vector<LabelTarget> jumps;
     std::pmr::vector<LabelTarget> strings;
-    std::pmr::vector<std::string_view> edges;
+    std::pmr::vector<EffectTarget> edges;
     SymbolContext symbol_ctx;
     u8 current_edge_index = 0;
     size_t label_index = 0;
@@ -70,19 +74,81 @@ static void compile_expr(GenContext& ctx, const Expr& e, bool ieq = false) {
         ctx.result.push(std::get<uint64_t>(e.value));
         break;
     case 2:
-        compile_expr(ctx, e.children[0]);
-        compile_expr(ctx, e.children[1]);
-        ctx.result.push((byte)std::get<Instr>(e.value));
+        const auto op = std::get<Instr>(e.value);
+        if (op == Instr::Lnot) {
+            compile_expr(ctx, e.children[0]);
+            ctx.result.push(op);
+        } else {
+            compile_expr(ctx, e.children[0]);
+            compile_expr(ctx, e.children[1]);
+            ctx.result.push(op);
+        }
         break;
+    }
+}
+static void compile_effect(GenContext& ctx, const std::pmr::vector<Effect>& actions) {
+    for (const auto& e : actions) {
+        switch (e.op) {
+        case Effect::Action::Event:
+            ctx.result.push((byte)Instr::Event);
+            ctx.strings.push_back({ (u32)ctx.result.size(), std::pmr::string(e.lhs, ctx.arena) });
+            ctx.result.push((u32)0);
+            break;
+        default:
+            ctx.result.push((byte)Instr::Load);
+            ctx.result.push(resolve_sym(ctx, e.lhs));
+            compile_expr(ctx, e.rhs);
+            switch (e.op) {
+            case Effect::Action::Add:
+                ctx.result.push((byte)Instr::Add);
+                break;
+            case Effect::Action::Sub:
+                ctx.result.push((byte)Instr::Sub);
+                break;
+            default:
+                break;
+            }
+            ctx.result.push((byte)Instr::Store);
+            ctx.result.push(resolve_sym(ctx, e.lhs));
+            break;
+        }
     }
 }
 
 static void compile_eblock(GenContext& ctx, const EdgeBlock& b) {
-    if (const auto ie = std::get_if<EdgeBlock::MyIfElse>(&b.node)) {
+    switch (b.node.index()) {
+    case 0:
+        for (const auto& e : std::get<EdgeBlock::MyT>(b.node)) {
+            compile_edge(ctx, e);
+        }
+        break;
+    case 1: {
+        const auto& mc = std::get<EdgeBlock::MyMatch>(b.node);
         const auto end_lbl = gen_label(ctx);
-
+        compile_expr(ctx, mc.ex);
+        for (size_t i = 0; i < mc.arms.size(); i++) {
+            const auto next_lbl = gen_label(ctx);
+            compile_expr(ctx, mc.arms[i].c, true);
+            ctx.result.push((byte)Instr::Jz);
+            ctx.jumps.push_back({ (u32)ctx.result.size(), next_lbl });
+            ctx.result.push((u32)0);
+            compile_edge(ctx, mc.arms[i].b);
+            ctx.result.push((byte)Instr::Jump);
+            ctx.jumps.push_back({ (u32)ctx.result.size(), end_lbl });
+            ctx.result.push((u32)0);
+            ctx.labels.emplace(next_lbl, (u32)ctx.result.size());
+        }
+        if (mc.catchall.has_value()) {
+            compile_edge(ctx, *mc.catchall);
+        }
+        ctx.labels.emplace(end_lbl, (u32)ctx.result.size());
+        ctx.result.push((byte)Instr::Pop);
+        break; }
+    case 2: {
+        const auto& ie = std::get<EdgeBlock::MyIfElse>(b.node);
+        const auto end_lbl = gen_label(ctx);
         size_t idx = 0;
-        for (const auto& branch : ie->conds) {
+        for (const auto& branch : ie.conds) {
             const auto next_lbl = gen_label(ctx);
             compile_expr(ctx, branch.c);
             ctx.result.push((byte)Instr::Jz);
@@ -91,7 +157,7 @@ static void compile_eblock(GenContext& ctx, const EdgeBlock& b) {
             for (const auto& br : branch.b) {
                 compile_eblock(ctx, br);
             }
-            if (ie->catchall.has_value() || idx < ie->conds.size() - 1) {
+            if (ie.catchall.has_value() || idx < ie.conds.size() - 1) { // micro-opt for superfluous tail branches
                 ctx.result.push((byte)Instr::Jump);
                 ctx.jumps.push_back({ (u32)ctx.result.size(), end_lbl });
                 ctx.result.push((u32)0);
@@ -99,86 +165,58 @@ static void compile_eblock(GenContext& ctx, const EdgeBlock& b) {
             ctx.labels.emplace(next_lbl, (u32)ctx.result.size());
             idx++;
         }
-        if (const auto& end = ie->catchall) {
+        if (const auto& end = ie.catchall) {
             for (const auto& br : *end) {
                 compile_eblock(ctx, br);
             }
         }
         ctx.labels.emplace(end_lbl, (u32)ctx.result.size());
-
-    } else if (const auto mc = std::get_if<EdgeBlock::MyMatch>(&b.node)) {
+        break; }
+    }
+    // we do not need tail jumps since edges are innately jumps
+}
+static void compile_vblock(GenContext& ctx, const VertexBlock& b) {
+    switch (b.node.index()) {
+    case 0:
+        compile_vertex(ctx, std::get<VertexBlock::MyT>(b.node));
+        break;
+    case 1: {
+        const auto& mc = std::get<VertexBlock::MyMatch>(b.node);
         const auto end_lbl = gen_label(ctx);
-        compile_expr(ctx, mc->ex);
-        for (size_t i = 0; i < mc->arms.size(); i++) {
+        compile_expr(ctx, mc.ex);
+        for (size_t i = 0; i < mc.arms.size(); i++) {
             const auto next_lbl = gen_label(ctx);
-            compile_expr(ctx, mc->arms[i].c, true);
-
+            compile_expr(ctx, mc.arms[i].c, true);
             ctx.result.push((byte)Instr::Jz);
             ctx.jumps.push_back({ (u32)ctx.result.size(), next_lbl });
             ctx.result.push((u32)0);
-            compile_edge(ctx, mc->arms[i].b);
-
-            ctx.result.push((byte)Instr::Jump);
-            ctx.jumps.push_back({ (u32)ctx.result.size(), end_lbl });
-            ctx.result.push((u32)0);
+            ctx.result.push((byte)Instr::Pop);
+            compile_vertex(ctx, mc.arms[i].b);
             ctx.labels.emplace(next_lbl, (u32)ctx.result.size());
         }
-        if (mc->catchall.has_value()) {
-            compile_edge(ctx, *mc->catchall);
-        }
-        ctx.labels.emplace(end_lbl, (u32)ctx.result.size());
         ctx.result.push((byte)Instr::Pop);
-
-    } else {
-        for (const auto& e : std::get<EdgeBlock::MyT>(b.node)) {
-            compile_edge(ctx, e);
-        }
-    }
-}
-static void compile_vblock(GenContext& ctx, const VertexBlock& b) {
-    if (const auto ie = std::get_if<VertexBlock::MyIfElse>(&b.node)) {
+        compile_vertex(ctx, *mc.catchall);
+        ctx.labels.emplace(end_lbl, (u32)ctx.result.size());
+        break; }
+    case 2: {
+        const auto& ie = std::get<VertexBlock::MyIfElse>(b.node);
         const auto end_lbl = gen_label(ctx);
-
-        for (const auto& branch : ie->conds) {
+        for (const auto& branch : ie.conds) {
             const auto next_lbl = gen_label(ctx);
             compile_expr(ctx, branch.c);
             ctx.result.push((byte)Instr::Jz);
             ctx.jumps.push_back({ (u32)ctx.result.size(), next_lbl });
             ctx.result.push((u32)0);
             compile_vblock(ctx, branch.b[0]);
-            // we do not need a tail jump since vertices always lead to jumps
             ctx.labels.emplace(next_lbl, (u32)ctx.result.size());
         }
-        if (const auto& end = ie->catchall) {
+        if (const auto& end = ie.catchall) {
             compile_vblock(ctx, end.value()[0]);
         }
         ctx.labels.emplace(end_lbl, (u32)ctx.result.size());
-
-    } else if (const auto mc = std::get_if<Match<Vertex>>(&b.node)) {
-        const auto end_lbl = gen_label(ctx);
-
-        compile_expr(ctx, mc->ex);
-        for (size_t i = 0; i < mc->arms.size(); i++) {
-            const auto next_lbl = gen_label(ctx);
-            compile_expr(ctx, mc->arms[i].c, true);
-
-            ctx.result.push((byte)Instr::Jz);
-            ctx.jumps.push_back({ (u32)ctx.result.size(), next_lbl });
-            ctx.result.push((u32)0);
-            ctx.result.push((byte)Instr::Pop);
-            compile_vertex(ctx, mc->arms[i].b);
-            // we do not need a tail jump since vertices always lead to jumps
-            ctx.labels.emplace(next_lbl, (u32)ctx.result.size());
-        }
-
-        ctx.result.push((byte)Instr::Pop);
-        compile_vertex(ctx, *mc->catchall);
-
-        ctx.labels.emplace(end_lbl, (u32)ctx.result.size());
-
-    } else {
-        compile_vertex(ctx, std::get<Vertex>(b.node));
+        break; }
     }
+    // we do not need tail jumps since vertices always lead to jumps eventually
 }
 static void compile_edge(GenContext& ctx, const Edge& e) {
     ctx.result.push((byte)Instr::Prop);
@@ -186,7 +224,11 @@ static void compile_edge(GenContext& ctx, const Edge& e) {
     ctx.result.push((u32)0);
     ctx.result.push((u8)0);
     ctx.result.last() = ctx.current_edge_index++;
-    ctx.edges.push_back(e.next);
+    if (e.effect.empty()) {
+        ctx.edges.push_back(EffectTarget{ &e, "" });
+    } else {
+        ctx.edges.push_back(EffectTarget{ &e, gen_label(ctx) });
+    }
 }
 static void compile_vertex(GenContext& ctx, const Vertex& v) {
     for (const auto& lvec : v.lines) {
@@ -210,9 +252,22 @@ static void compile_vertex(GenContext& ctx, const Vertex& v) {
         }
         ctx.result.push((byte)Instr::Pick);
         ctx.result.push((byte)Instr::Switch);
-        for (size_t i = 0; i < ctx.edges.size(); i++) {
-            ctx.jumps.push_back({ (u32)ctx.result.size(), std::pmr::string(ctx.edges[i], ctx.arena) });
+        for (const auto& e : ctx.edges) {
+            if (e.edge->effect.empty()) {
+                ctx.jumps.push_back({ (u32)ctx.result.size(), std::pmr::string(e.edge->next, ctx.arena) });
+            } else {
+                ctx.jumps.push_back({ (u32)ctx.result.size(), e.target });
+            }
             ctx.result.push((u32)0);
+        }
+        for (const auto& e : ctx.edges) {
+            if (!e.edge->effect.empty()) {
+                ctx.labels[e.target] = (uint32_t)ctx.result.size();
+                compile_effect(ctx, e.edge->effect);
+                ctx.result.push((byte)Instr::Jump);
+                ctx.jumps.push_back({ (u32)ctx.result.size(), std::pmr::string(e.edge->next, ctx.arena) });
+                ctx.result.push((u32)0);
+            }
         }
     }
 }
@@ -231,7 +286,7 @@ ProgramData compile_ast(const Ast& ast, SymbolContext symctx) {
         std::pmr::unordered_map<std::string_view, u32>( &arena ),
         std::pmr::vector<LabelTarget>( &arena ),
         std::pmr::vector<LabelTarget>( &arena ),
-        std::pmr::vector<std::string_view>( &arena ),
+        std::pmr::vector<EffectTarget>( &arena ),
         symctx
     };
 

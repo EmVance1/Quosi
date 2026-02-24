@@ -30,7 +30,7 @@ static void parse_edge(ParseContext& ctx, Edge& result);
 static void parse_edge_if(ParseContext& ctx, EdgeBlock::MyIfElse& result);
 static void parse_edge_if_body(ParseContext& ctx, std::pmr::vector<EdgeBlock>& result, bool top);
 static void parse_edge_match(ParseContext& ctx, EdgeBlock::MyMatch& result);
-static void parse_effect(ParseContext& ctx, Effect& result);
+static void parse_effect(ParseContext& ctx, std::pmr::vector<Effect>& result);
 
 #define contains_key(map, key) (map.find(key) != map.end())
 
@@ -298,11 +298,8 @@ static void parse_edge(ParseContext& ctx, Edge& result) {
     n = ctx.tokens.next();
     switch (n.type) {
     case Token::Type::Join:
-        result.effect = Effect();
-        parse_effect(ctx, *result.effect);
+        parse_effect(ctx, result.effect);
         EH_PROP();
-        n = ctx.tokens.next();
-        EH_CHECK(n, CloseParen, Unknown);
         n = ctx.tokens.next();
         EH_CHECK(n, Arrow, Unknown);
         break;
@@ -468,10 +465,56 @@ static void parse_edge_match(ParseContext& ctx, Match<Edge>& result) {
 
     EH_FAIL(n, EarlyEof);
 }
-static void parse_effect(ParseContext& ctx, Effect& result) {
-    // TODO
-    while (ctx.tokens.peek().type != Token::Type::CloseParen) {
-        ctx.tokens.next();
+static void parse_effect(ParseContext& ctx, std::pmr::vector<Effect>& result) {
+    result = std::pmr::vector<Effect>(ctx.arena);
+
+    auto n = ctx.tokens.next();
+    EH_CHECK(n, OpenParen, Unknown);
+
+    n = ctx.tokens.next();
+    while (n.type != Token::Type::CloseParen) {
+        EH_CHECK(n, Ident, Unknown);
+        auto& effect = result.emplace_back();
+        effect.lhs = n.value;
+        effect.op = Effect::Action::Event;
+
+        n = ctx.tokens.next();
+        switch (n.type) {
+        case Token::Type::AddEq: case Token::Type::SubEq: case Token::Type::SetEq:
+            switch (n.type) {
+            case Token::Type::AddEq:
+                effect.op = Effect::Action::Add; break;
+            case Token::Type::SubEq:
+                effect.op = Effect::Action::Sub; break;
+            case Token::Type::SetEq:
+                effect.op = Effect::Action::Set; break;
+            default:
+                EH_FAIL(n, Unknown);
+                break;
+            }
+            parse_expr(ctx, effect.rhs);
+            n = ctx.tokens.next();
+            switch (n.type) {
+            case Token::Type::Comma:
+                n = ctx.tokens.next();
+                break;
+            case Token::Type::CloseParen:
+                break;
+
+            default:
+                EH_FAIL(n, Unknown);
+            }
+            break;
+
+        case Token::Type::Comma:
+            n = ctx.tokens.next();
+            break;
+        case Token::Type::CloseParen:
+            return;
+
+        default:
+            EH_FAIL(n, Unknown);
+        }
     }
 }
 

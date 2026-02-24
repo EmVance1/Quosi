@@ -1,6 +1,5 @@
 #pragma once
 #include "quosi/bc.h"
-#include <string>
 #include <vector>
 #include <variant>
 #include <optional>
@@ -19,12 +18,17 @@ struct Expr {
     std::pmr::vector<Expr> children;
 };
 
-using Effect = std::variant<std::pmr::string, Expr>;
+struct Effect {
+    enum class Action { Add, Sub, Set, Event };
+    std::string_view lhs;
+    Expr rhs;
+    Action op;
+};
 
 struct Edge {
     std::string_view line;
     std::string_view next;
-    std::optional<Effect> effect;
+    std::pmr::vector<Effect> effect;
 };
 
 template<typename T>

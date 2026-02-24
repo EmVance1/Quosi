@@ -53,11 +53,10 @@ static Instr opcode(const Token& t) {
 }
 
 
-#define SOFT_FAIL(tok, E) do { ctx.errors->list.push_back({ Error::Type::E, tok.span }); } while (0)
-#define CRIT_FAIL(tok, E) do { ctx.errors->list.push_back({ Error::Type::E, tok.span }); ctx.errors->fail = true; return; } while (0)
-#define SOFT_CHECK(tok, T, E) do { if (tok.type != Token::Type::T) { SOFT_FAIL(tok, E); } } while (0)
-#define CRIT_CHECK(tok, T, E) do { if (tok.type != Token::Type::T) { CRIT_FAIL(tok, E); } } while (0)
-#define PROP() do { if (ctx.errors->fail) { return; } } while (0)
+#define EH_FAIL(tok, E) do { ctx.errors->list.push_back({ Error::Type::E, tok.span }); \
+    if (ctx.errors->list.back().is_critical()) { ctx.errors->fail = true; return; } } while (0)
+#define EH_CHECK(tok, T, E) do { if (tok.type != Token::Type::T) { EH_FAIL(tok, E); } } while (0)
+#define EH_PROP() do { if (ctx.errors->fail) return; } while (0)
 
 
 static void parse_expr_impl(ParseContext& ctx, Expr& result, float minbp, int l);
@@ -69,7 +68,7 @@ void parse_value(ParseContext& ctx, Expr& result) {
     auto n = ctx.tokens.next();
     switch (n.type) {
     case Token::Type::Ident:
-        result.value = std::pmr::string(n.value, ctx.arena);
+        result.value = n.value;
         break;
 
     case Token::Type::Keyword:
@@ -78,19 +77,19 @@ void parse_value(ParseContext& ctx, Expr& result) {
         } else if (n.value == "false") {
             result.value = (u64)0;
         } else {
-            CRIT_FAIL(n, Unknown);
+            EH_FAIL(n, Unknown);
         }
         break;
 
      case Token::Type::Number: {
         u64 val;
         auto temp = std::from_chars(n.value.data(), n.value.data() + n.value.size(), val);
-        if (temp.ec == std::errc::invalid_argument) CRIT_FAIL(n, Unknown);
+        if (temp.ec == std::errc::invalid_argument) EH_FAIL(n, Unknown);
         result.value = val;
         break; }
 
     default:
-        CRIT_FAIL(n, Unknown);
+        EH_FAIL(n, Unknown);
         break;
     }
     return;
@@ -102,22 +101,25 @@ static void parse_expr_impl(ParseContext& ctx, Expr& result, float minbp, int l)
     case Token::Type::OpenParen:
         ctx.tokens.next();
         parse_expr_impl(ctx, result, 0, l + 1);
+        EH_PROP();
         n = ctx.tokens.next();
-        CRIT_CHECK(n, CloseParen, Unknown);
+        EH_CHECK(n, CloseParen, Unknown);
         if (l == 0) return;
         break;
 
     case Token::Type::Ident: case Token::Type::Keyword: case Token::Type::Number:
         parse_value(ctx, result);
+        EH_PROP();
         break;
 
     default:
-        CRIT_FAIL(n, Unknown);
+        EH_FAIL(n, Unknown);
         break;
     }
 
     while (true) {
         const auto op = ctx.tokens.peek();
+        if (op.type == Token::Type::Comma) break;
         if (op.type == Token::Type::CloseParen) break;
         const auto [lbp, rbp] = binding(op);
         if (lbp < minbp) break;
@@ -126,6 +128,8 @@ static void parse_expr_impl(ParseContext& ctx, Expr& result, float minbp, int l)
         children.emplace_back(result);
         auto& rhs = children.emplace_back();
         parse_expr_impl(ctx, rhs, rbp, l);
+        if (ctx.tokens.peek().type == Token::Type::Comma) break;
+        EH_PROP();
         result.children = std::move(children);
         result.value = opcode(op);
     }

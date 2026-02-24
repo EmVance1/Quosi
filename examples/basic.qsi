@@ -1,12 +1,12 @@
 
+module Brian
+
 rename BrianPrime => brp
 
-
 START = if (true) then
-    <brp: "Oh hello there. Fancy a game of cards?", "It's good fun you know."> <Shimmy: "Go on mate, play a game with brian.">
-    (
+    <brp: "Oh hello there. Fancy a game of cards?", "It's good fun you know."> <Shimmy: "Go on mate, play a game with brian."> (
         "Love to. Names ${player} by the way." => happy
-        "If that's what counts for fun around here." :: ( Brian.Suspicion += 1 ) => chat
+        "If that's what counts for fun around here." :: ( Brian.Suspicion += 1, Brian.Drunk = true, GotoEvent ) => chat
     )
 else
     <brp: "Lovely spot this, don't you think?"> => EXIT
@@ -14,9 +14,7 @@ end
 
 happy = <brp: "Good on ye ${player}."> => game
 
-
-chat = <brp: "Ok slow down pal, you just got here. Where are you from?">
-(
+chat = <brp: "Ok slow down pal, you just got here. Where are you from?"> (
     if (true) then
         match (Player.Origin) with
           (Twinvayne) "Twinvayne." => fasc
@@ -37,16 +35,16 @@ chat = <brp: "Ok slow down pal, you just got here. Where are you from?">
 fasc = <brp: "Fascinating.">   => game
 enig = <brp: "How enigmatic."> => game
 rude = <brp: "How rude.">      => game
-game = <brp: "Why don't you pick a card, any card.">
-(
+game = <brp: "Why don't you pick a card, any card."> (
     "*Pick high*" => pick
     "*Pick low*"  => pick
 )
-
 
 pick = match (0) with
     (0) <Narrator: "*You draw an ace.*">            => EXIT
     (1) <Narrator: "*You draw a 3.*">               => EXIT
     (_) <Narrator: "*You draw a 9. As did Brian.*"> => EXIT
 end
+
+endmod
 
