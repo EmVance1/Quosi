@@ -5,9 +5,9 @@
 #define VANGO_TEST_ROOT
 #include <vangotest/casserts2.h>
 #include <vangotest/bench.h>
-#include "cquosi/quosi.h"
-#include "cquosi/ast.h"
-#include "cquosi/vm.h"
+#include "quosi/quosi.h"
+#include "quosi/ast.h"
+#include "quosi/vm.h"
 #include <stdlib.h>
 #include <stdio.h>
 

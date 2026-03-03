@@ -2,7 +2,11 @@
 
 Quosi is a library designed to make adding complex branching dialogue to your C/C++ completely trivial. It combines the familiarity
 of common programming language constructs with syntax designed to read like a screenplay, aswell as flexible game state integration.
-A simple Quosi script might look something like this:
+Branching conversations, situational response options, and game state modification are first class citizens. Note - this is library
+is for managing dialogue logic, it does not perform any UI operations. That being said, embedding the language into a custom engine is
+designed to be as easy as possible (see below for instructions).
+
+## Basic Example
 ```
 module Brian
 
@@ -39,9 +43,36 @@ end
 
 endmod
 ```
-As you can see, branching paths, situational response options, and game state modification are first class citizens. Integrating the
-library itself into your project is just as easy. The main API consists of just 3 functions - compile, load, execute. The compiled
-binary format can be saved and loaded completely as is, meaning all compilation can be done ahead of time to negate load times.
+## Installation
+Quosi compiles and links to your project out of the box with my build system Vango. A simple Makefile is also provided to build the
+static library (TODO), although really all thats necessary is to compile everything in `src`, and add `include/quosi` as an include.
+
+## Project Integration
+Integrating the library itself into your project is dead easy. The core API consists of just 3 functions - compile, load, execute.
+The compiled binary format can be saved and loaded completely as is, meaning all compilation can be done ahead of time to negate load
+times. Below is already a complete example of what your usual skeleton may look like (see `test/test.c` for a complete CLI example).
+Quosi works by emitting events - upcalls - from the `exec` function. These generally occur whenever player input is expected, such as
+choosing dialogue options (see docs for detailed communication with the vm), but user defined events may also occur.
+```
+char* src = read_to_string("examples/NPCs.qsi");
+quosiError errors = { 0 };
+quosiFile* file = quosi_file_compile_from_src(src, &errors, varkey_ctx, quosi_malloc_allocator());
+free(src);
+
+quosiVm vm;
+quosi_vm_init(&vm, file, "Brian");
+
+while (true) {
+    switch (quosi_vm_exec(&vm, varval_ctx)) {
+    case QUOSI_UPCALL_LINE:  /* ... */ break;
+    case QUOSI_UPCALL_PICK:  /* ... */ break;
+    case QUOSI_UPCALL_EVENT: /* ... */ break;
+    case QUOSI_UPCALL_EXIT:  /* ... */ break;
+    }
+}
+
+free(file);
+```
 
 As a side note, the language is, as best I can tell, Turing-complete. In some sense it directly models a turing machine, complete with
 state transitions and (theoretically) unbounded memory. This means that it can be abused to make poor Brian compute the 10th fibonacci
