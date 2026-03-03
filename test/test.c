@@ -30,7 +30,7 @@ quosiSymbolCtx dummy_ctx = { dummy_ctxf, dummy_ctxf };
 uint64_t* vm_ctx(uint32_t key) { (void)key; static uint64_t val = 0; return &val; }
 
 vango_test(cmp_example) {
-    char* src = read_to_string("examples/fib.qsi");
+    char* src = read_to_string("examples/doall.qsi");
     vg_assert_non_null(src);
     quosiError errors = { 0 };
     quosiFile* file = quosi_file_compile_from_src(src, &errors, dummy_ctx, quosi_malloc_allocator());
@@ -49,14 +49,14 @@ vango_test(cmp_example) {
 }
 
 vango_test(run_example) {
-    char* src = read_to_string("examples/brian.qsi");
+    char* src = read_to_string("examples/doall.qsi");
     vg_assert_non_null(src);
     quosiError errors = { 0 };
     quosiFile* file = quosi_file_compile_from_src(src, &errors, dummy_ctx, quosi_malloc_allocator());
     free(src);
 
     quosiVm vm;
-    quosi_vm_init(&vm, file, "main");
+    quosi_vm_init(&vm, file, "Default");
 
     while (true) {
         switch (quosi_vm_exec(&vm, vm_ctx)) {
@@ -116,7 +116,7 @@ vango_test(bench_memory) {
 }
 
 vango_test(bench_parser) {
-    char* src = read_to_string("examples/basic.qsi");
+    char* src = read_to_string("examples/large.qsi");
     vg_assert_non_null(src);
     quosiError errors = { 0, 0 };
     quosiMemoryArena arena = quosi_memory_arena_create(QUOSI_MEMORY_ARENA_PAGE, 100 * 1000);
@@ -136,7 +136,7 @@ vango_test(bench_parser) {
 }
 
 vango_test(bench_codegen) {
-    char* src = read_to_string("examples/basic.qsi");
+    char* src = read_to_string("examples/large.qsi");
     quosiError errors = { 0 };
     quosiMemoryArena ast_arena = quosi_memory_arena_create(QUOSI_MEMORY_ARENA_PAGE, 100 * 1000);
     const quosiAst ast = quosi_ast_parse_from_src(src, &errors, quosi_memory_arena_allocator(&ast_arena));
@@ -156,7 +156,7 @@ vango_test(bench_codegen) {
 }
 
 vango_test(bench_compiler) {
-    char* src = read_to_string("examples/brian.qsi");
+    char* src = read_to_string("examples/large.qsi");
     quosiError errors = { 0 };
     quosiMemoryArena arena = quosi_memory_arena_create(QUOSI_MEMORY_ARENA_MALLOC, 100 * 1000);
     quosiFile* file = NULL;

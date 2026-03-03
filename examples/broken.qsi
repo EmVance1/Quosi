@@ -1,5 +1,5 @@
 
-module main
+module Shimmy
 
 START = if (Player.Origin == Origin.Twinvayne) then
     <Shimmy: "You're a long way from home pal. Good thing you made it before the curfew. What can I get ye?"> (
