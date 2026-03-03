@@ -1,6 +1,6 @@
 #ifndef CQUOSI_EXPR_H
 #define CQUOSI_EXPR_H
-#include "cquosi/ast.h"
+#include "quosi/ast.h"
 #include "ctx.h"
 
 void quosi_internal_parse_expr(quosiParseCtx* ctx, quosiExpr* result);

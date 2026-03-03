@@ -1,5 +1,5 @@
-#include "cquosi/quosi.h"
-#include "cquosi/bc.h"
+#include "quosi/quosi.h"
+#include "quosi/bc.h"
 #include <string.h>
 #include <stdbool.h>
 #include <stdio.h>

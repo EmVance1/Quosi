@@ -1,5 +1,5 @@
-#include "cquosi/ast.h"
-#include "cquosi/bc.h"
+#include "quosi/ast.h"
+#include "quosi/bc.h"
 #include "ctx.h"
 #include "lex.h"
 #include <string.h>

@@ -1,7 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS
-#include "cquosi/quosi.h"
-#include "cquosi/ast.h"
-#include "cquosi/bc.h"
+#include "quosi/quosi.h"
+#include "quosi/ast.h"
+#include "quosi/bc.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>

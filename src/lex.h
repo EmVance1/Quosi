@@ -1,6 +1,6 @@
 #ifndef CQUOSI_IMPL_LEX_H
 #define CQUOSI_IMPL_LEX_H
-#include "cquosi/quosi.h"
+#include "quosi/quosi.h"
 #include <stdbool.h>
 #include <stdint.h>
 

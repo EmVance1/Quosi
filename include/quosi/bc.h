@@ -1,6 +1,6 @@
 #ifndef CQUOSI_BC_H
 #define CQUOSI_BC_H
-#include "cquosi/quosi.h"
+#include "quosi/quosi.h"
 #include <stdint.h>
 
 

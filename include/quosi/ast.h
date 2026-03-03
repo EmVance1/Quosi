@@ -1,6 +1,6 @@
 #ifndef CQUOSI_IMPL_AST_H
 #define CQUOSI_IMPL_AST_H
-#include "cquosi/quosi.h"
+#include "quosi/quosi.h"
 #include <stdint.h>
 #include <stdbool.h>
 

@@ -1,4 +1,4 @@
-#include "cquosi/ast.h"
+#include "quosi/ast.h"
 #include "lex.h"
 #include "expr.h"
 #include <string.h>

@@ -1,6 +1,6 @@
-#include "cquosi/ast.h"
-#include "cquosi/bc.h"
-#include "cquosi/quosi.h"
+#include "quosi/ast.h"
+#include "quosi/bc.h"
+#include "quosi/quosi.h"
 #define QUOSIDS_ALLOCATOR alloc
 #include "vec.h"
 #include <stdio.h>

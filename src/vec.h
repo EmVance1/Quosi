@@ -1,6 +1,6 @@
 #ifndef CQUOSI_IMPL_VEC_H
 #define CQUOSI_IMPL_VEC_H
-#include "cquosi/quosi.h"
+#include "quosi/quosi.h"
 
 
 typedef struct quosiDynArrayHeader {

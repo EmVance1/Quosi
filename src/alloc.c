@@ -5,7 +5,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #endif
-#include "cquosi/quosi.h"
+#include "quosi/quosi.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>

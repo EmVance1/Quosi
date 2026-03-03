@@ -1,6 +1,6 @@
-#include "cquosi/quosi.h"
-#include "cquosi/ast.h"
-#include "cquosi/bc.h"
+#include "quosi/quosi.h"
+#include "quosi/ast.h"
+#include "quosi/bc.h"
 #include <string.h>
 #include <stdio.h>
 #define QUOSIDS_ALLOCATOR (ctx->alloc)
