@@ -1,8 +1,8 @@
 # Quosi
 
-Quosi is a library designed to make adding complex branching dialogue to your C/C++ game as easy as possible. It combines the
-familiarity of common programming language constructs with syntax designed to read like a script, aswell as flexible game state
-integration. An simple Quosi script might look something like this:
+Quosi is a library designed to make adding complex branching dialogue to your C/C++ completely trivial. It combines the familiarity
+of common programming language constructs with syntax designed to read like a screenplay, aswell as flexible game state integration.
+A simple Quosi script might look something like this:
 ```
 module Brian
 
