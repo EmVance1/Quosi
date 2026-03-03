@@ -1,0 +1,18 @@
+[package]
+name = "cquosi"
+version = "0.1.0"
+lang = "C99"
+kind = "staticlib"
+
+warn-level = "high"
+iso-compliant = true
+
+compiler-options = [ "-D_GNU_SOURCE" ]
+
+[profile.debug]
+# sanitize.address = true
+
+[profile.release]
+# opt-linktime = false
+
+[dependencies]

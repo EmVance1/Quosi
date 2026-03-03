@@ -1,0 +1,103 @@
+
+
+module Grumpy
+
+name bp = BrianPrime
+
+START = if (true) then
+    <bp: "Oh hello there. Fancy a game of cards?", "It's good fun you know"> <ShimmyPrime: "Go on mate, play a game with brian">
+    (
+        "Love to. Names ${player} by the way."       => pause
+        "If that's what counts for fun around here." => ( Brian.Suspicion += 1 ) => chat
+    )
+else
+    <bp: "Lovely spot this, don't you think?"> => EXIT
+end
+
+pause = <bp: "Good on ye ${player}."> => game
+
+chat = <bp: "Ok slow down pal, you just got here. Where are you from?">
+(
+    if (true) then
+        match (Player.Origin) with
+          (Twinvayne) "Twinvayne" => game
+          (Domali)    "Domali"    => game
+          (_)         "Nowhere"   => enigma
+        end
+    end
+
+    if (2 + 2 == 4) then
+        "This place" => enigma
+    else
+        "That place" => enigma
+    end
+)
+
+vert   = <bp: "Fascinating.">   => game
+enigma = <bp: "How enigmatic."> => game
+rude   = <bp: "How rude.">      => game
+game   = <bp: "Why don't you pick a card, any card.">
+(
+    "*Pick high*" => pick
+    "*Pick low*"  => pick
+)
+
+pick = match (0) with
+    (0) <Narrator: "*You draw an ace.*">            => EXIT
+    (1) <Narrator: "*You draw a 3.*">               => EXIT
+    (_) <Narrator: "*You draw a 9. As did Brian.*"> => EXIT
+end
+
+endmod
+
+module Brian
+
+name bp = BrianPrime
+
+START = if (true) then
+    <bp: "Oh hello there. Fancy a game of cards?">
+    (
+        "Love to. Names ${player} by the way."       => pause
+        "If that's what counts for fun around here." => ( Brian.Suspicion += 1 ) => chat
+    )
+else
+    <bp: "Lovely spot this, don't you think?"> => EXIT
+end
+
+pause = <bp: "Good on ye ${player}."> => game
+
+chat = <bp: "Ok slow down pal, I'll teach ye what counts for respect around here...">
+<ShimmyPrime: "I'm sorry mate he just wandered in here."> <bp: "Aye don't worry yourself Shimmy were just talking is all.">
+(
+    if (true) then
+        match (Player.Origin) with
+          (Twinvayne) "Twinvayne" => game
+          (Domali)    "Domali"    => game
+          (_)         "Nowhere"   => enigma
+        end
+    end
+
+    if (2 + 2 == 4) then
+        "This place" => enigma
+    else
+        "That place" => enigma
+    end
+)
+
+vert   = <bp: "Fascinating.">   => game
+enigma = <bp: "How enigmatic."> => game
+rude   = <bp: "How rude.">      => game
+game   = <bp: "Why don't you pick a card, any card.">
+(
+    "*Pick high*" => pick
+    "*Pick low*"  => pick
+)
+
+pick = match (_pick:rng(3)) with
+    (0) <Narrator: "*You draw an ace.*">            => EXIT
+    (1) <Narrator: "*You draw a 3.*">               => EXIT
+    (_) <Narrator: "*You draw a 9. As did Brian.*"> => EXIT
+end
+
+endmod
+
