@@ -8,41 +8,37 @@ designed to be as easy as possible (see below for instructions).
 
 ## Basic Example
 ```
-module Brian
+module Default
 
-START = <Brian: "Oh hello there. Fancy a game of cards?", "It's good fun you know."> (
-    "Love to. Names ${player} by the way." => happy
-    "If that's what counts for fun around here." :: ( Brian.Approval -= 10 ) => chat
-    if (Player.Origin == Twinvayne) then
-        "Piss of Brian ya daft git." => EXIT
-    end
-)
+START = if (ShimmyIntroScene.IsActive) then
+    <Brian: "Oh hello there. Fancy a game of cards?"> (
+        "Love to." => v01
+        "If that's what counts for fun around here." => v02
+        if (Player.Origin == Twinvayne) then
+            "Piss off Brian ya daft git." => EXIT
+        end
+    )
+else
+    <Brian: "Lovely spot this, don't you think?"> => EXIT
+end
 
-happy = <Brian: "Good on ye ${player}."> => game
-chat  = <Brian: "Ok slow down pal, you just got here. Where are you from?"> (
-    match (Player.Origin) with
-      (Twinvayne) "Twinvayne." => fasc
-      (Domali)    "Domali."    => fasc
-    end
-    "Your moms house." => rude
-    "Nowhere."         => enig
-)
+v01 = <Brian: "Good on ye."> => game
+v02 = <Brian: "You need to open yourself up to new experiences friend."> => game
 
-fasc = <Brian: "How fascinating."> => game
-enig = <Brian: "How enigmatic.">   => game
-rude = <Brian: "How rude.">        => game
 game = <Brian: "Why don't you pick a card, any card."> (
-    "*Pick high*" => pick
-    "*Pick low*"  => pick
+    "*Pick higher up*"  => pick
+    "*Pick lower down*" => pick
 )
+
 pick = match (rng3) with
-    (0) <Narrator: "*You draw an ace.*">            => EXIT
-    (1) <Narrator: "*You draw a 3.*">               => EXIT
-    (_) <Narrator: "*You draw a 9. As did Brian.*"> => EXIT
+    (0) <Narrator: "*You draw an ace.*">            <Brian: "Lucky lucky.">     => EXIT
+    (1) <Narrator: "*You draw a 3.*">               <Brian: "Bad luck friend."> => EXIT
+    (_) <Narrator: "*You draw a 9. As did Brian.*"> <Brian: "Well well.">       => EXIT
 end
 
 endmod
 ```
+
 ## Installation
 Quosi compiles and links to your project out of the box with my build system Vango. A simple Makefile is also provided to build the
 static library (TODO), although really all thats necessary is to compile everything in `src`, and add `include/quosi` as an include.

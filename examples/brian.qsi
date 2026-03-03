@@ -1,5 +1,5 @@
 
-module main
+module Default
 
 START = if (ShimmyIntroScene.IsActive & once) then
     <BrianPrime: "Oh hello there. Fancy a game of cards?"> (
@@ -19,7 +19,7 @@ game = <BrianPrime: "Why don't you pick a card, any card."> (
     "*Pick lower down*" => pick
 )
 
-pick = match (_pick:rng3) with
+pick = match (rng3) with
     (0) <Narrator: "*You draw an ace.*">            <BrianPrime: "Lucky lucky.">     => EXIT
     (1) <Narrator: "*You draw a 3.*">               <BrianPrime: "Bad luck friend."> => EXIT
     (_) <Narrator: "*You draw a 9. As did Brian.*"> <BrianPrime: "Well well.">       => EXIT
