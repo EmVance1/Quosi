@@ -25,6 +25,7 @@ static bool is_keyword(quosiStrView str) {
     if (STREQ(str, "end"))    return true;
     if (STREQ(str, "true"))   return true;
     if (STREQ(str, "false"))  return true;
+    if (STREQ(str, "inf"))    return true;
     if (STREQ(str, "rename")) return true;
     if (STREQ(str, "module")) return true;
     if (STREQ(str, "endmod")) return true;
@@ -225,6 +226,6 @@ static quosiToken _impl_step(quosiTokenStream* self) {
         self->pos = p;
     }
 
-    return (quosiToken){ .type=QUOSI_TOKEN_EOF, .value={ "[[EOF]]", 0 }, .span={0} };
+    return (quosiToken){ .type=QUOSI_TOKEN_EOF, .value={ "[[EOF]]", 0 }, .span=self->pos };
 }
 

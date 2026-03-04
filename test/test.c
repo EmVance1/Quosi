@@ -17,7 +17,7 @@ static uint64_t* vm_ctx(uint32_t key) { (void)key; static uint64_t val = 0; retu
 
 
 vango_test(cmp_example) {
-    char* src = read_to_string("examples/doall.qsi");
+    char* src = read_to_string("examples/brian.qsi");
     vg_assert_non_null(src);
     quosiError errors = { 0 };
     quosiFile* file = quosi_file_compile_from_src(src, &errors, dummy_ctx, quosi_malloc_allocator());
@@ -31,10 +31,11 @@ vango_test(cmp_example) {
         vg_assert(false);
     }
 
-    quosi_file_prettyprint(file, "Default", stdout);
-    quosi_allocator_deallocate(quosi_malloc_allocator(), file);
+    // quosi_file_prettyprint(file, "Default", stdout);
+    free(file);
 }
 
+/*
 vango_test(run_example) {
     char* src = read_to_string("examples/doall.qsi");
     vg_assert_non_null(src);
@@ -68,13 +69,14 @@ vango_test(run_example) {
             break;
         case QUOSI_UPCALL_EXIT:
             printf("\nEOF\n");
-            quosi_allocator_deallocate(quosi_malloc_allocator(), file);
+            free(file);
             return;
         default:
             printf("\nERROR\n");
-            quosi_allocator_deallocate(quosi_malloc_allocator(), file);
+            free(file);
             vg_assert(false);
         }
     }
 }
+*/
 

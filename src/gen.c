@@ -245,6 +245,12 @@ static void compile_effects(GenContext* ctx, const quosiEffect* actions) {
             case QUOSI_EFFECT_SUB:
                 quosids_arrpush(ctx->result, (uint8_t)QUOSI_INSTR_SUB);
                 break;
+            case QUOSI_EFFECT_MUL:
+                quosids_arrpush(ctx->result, (uint8_t)QUOSI_INSTR_MUL);
+                break;
+            case QUOSI_EFFECT_DIV:
+                quosids_arrpush(ctx->result, (uint8_t)QUOSI_INSTR_DIV);
+                break;
             default:
                 break;
             }
@@ -379,17 +385,17 @@ static void compile_vertex(GenContext* ctx, const quosiVertex* v) {
     }
 
     if (v->type == QUOSI_VERTEX_JUMP) {
-        if (v->jump.effects) {
-            compile_effects(ctx, v->jump.effects);
+        if (v->v.jump.effects) {
+            compile_effects(ctx, v->v.jump.effects);
         }
         quosids_arrpush(ctx->result, (uint8_t)QUOSI_INSTR_JUMP);
-        quosids_arrpush(ctx->jumps, ((LabelTarget){ (uint32_t)quosids_arrlenu(ctx->result), resolve_edge(ctx, v->jump.next) }));
+        quosids_arrpush(ctx->jumps, ((LabelTarget){ (uint32_t)quosids_arrlenu(ctx->result), resolve_edge(ctx, v->v.jump.next) }));
         quosids_arraddn(ctx->result, sizeof(uint32_t));
     } else {
         ctx->edge_index = 0;
         quosids_arrfree(ctx->edges);
-        for (size_t i = 0; i < quosids_arrlenu(v->edges); i++) {
-            compile_eblock(ctx, &v->edges[i]);
+        for (size_t i = 0; i < quosids_arrlenu(v->v.edges); i++) {
+            compile_eblock(ctx, &v->v.edges[i]);
         }
         quosids_arrpush(ctx->result, (uint8_t)QUOSI_INSTR_PICK);
         quosids_arrpush(ctx->result, (uint8_t)QUOSI_INSTR_SWITCH);

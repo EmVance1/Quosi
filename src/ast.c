@@ -77,13 +77,13 @@ static void quosi_vertex_free(quosiVertex* vert, quosiAllocator alloc) {
         quosids_arrfree(vert->lineset[i].lines);
     }
     quosids_arrfree(vert->lineset);
-    for (size_t i = 0; i < quosids_arrlenu(vert->edges); i++) {
-        quosi_edgeblock_free(&vert->edges[i], alloc);
+    for (size_t i = 0; i < quosids_arrlenu(vert->v.edges); i++) {
+        quosi_edgeblock_free(&vert->v.edges[i], alloc);
     }
     if (vert->type == QUOSI_VERTEX_JUMP) {
-        quosids_arrfree(vert->jump.effects);
+        quosids_arrfree(vert->v.jump.effects);
     } else {
-        quosids_arrfree(vert->edges);
+        quosids_arrfree(vert->v.edges);
     }
 }
 static void quosi_vertmatch_free(quosiVertexMatch* match, quosiAllocator alloc) {

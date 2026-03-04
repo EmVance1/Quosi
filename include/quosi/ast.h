@@ -59,7 +59,7 @@ struct quosiExpr {
 };
 
 struct quosiEffect {
-    enum quosiEffectType { QUOSI_EFFECT_ADD, QUOSI_EFFECT_SUB, QUOSI_EFFECT_SET, QUOSI_EFFECT_EVENT } op;
+    enum quosiEffectType { QUOSI_EFFECT_ADD, QUOSI_EFFECT_SUB, QUOSI_EFFECT_MUL, QUOSI_EFFECT_DIV, QUOSI_EFFECT_SET, QUOSI_EFFECT_EVENT } op;
     quosiStrView lhs;
     quosiExpr rhs;
 };
@@ -83,7 +83,7 @@ struct quosiVertex {
             quosiEffect* effects;
             quosiStrView next;
         } jump;
-    };
+    } v;
 };
 
 struct quosiEdge {

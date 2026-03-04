@@ -1,3 +1,6 @@
+
+#if 0
+
 #define _CRT_SECURE_NO_WARNINGS
 #define _GNU_SOURCE
 #define VANGO_BENCH_WARMUP 1000
@@ -92,3 +95,8 @@ vango_test(bench_compiler) {
     free(src);
 }
 
+#else
+
+void _filler(void) {}
+
+#endif

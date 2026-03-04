@@ -2,6 +2,7 @@
 #ifdef _WIN32
 #include <Windows.h>
 #else
+#define _GNU_SOURCE
 #include <sys/mman.h>
 #include <unistd.h>
 #endif
