@@ -1,5 +1,7 @@
 *.raddbg_project
 bin/
+build/
+*.a
 compile_flags.txt
 todo.md
 

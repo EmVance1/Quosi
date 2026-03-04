@@ -1,7 +1,7 @@
 
 module Default
 
-START = if (ShimmyIntroScene.IsActive & once) then
+START = if (ShimmyIntroScene.IsActive && once) then
     <BrianPrime: "Oh hello there. Fancy a game of cards?"> (
         "Love to." => v01
         "If that's what counts for fun around here." => v02
