@@ -6,7 +6,7 @@
 #define QUOSIDS_ALLOCATOR (ctx->alloc)
 #include "vec.h"
 
-#define ALLOC(T) (T*)quosi_allocator_allocate(ctx->alloc, sizeof(T))
+
 #define STREQ(view, cptr) ((view.len == sizeof(cptr)-1) && (strncmp(view.ptr, cptr, view.len) == 0))
 
 

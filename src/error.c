@@ -1,5 +1,37 @@
 #include "quosi/quosi.h"
 #include "vec.h"
+#include "lex.h"
+
+
+void quosi_error_list_push(quosiError* errors, quosiErrorValue err) {
+    quosids_arrpush(errors->list, err);
+}
+
+size_t quosi_error_list_len(const quosiError* errors) {
+    return quosids_arrlenu(errors->list);
+}
+
+void quosi_error_list_free(quosiError* errors) {
+    quosids_arrfree(errors->list);
+}
+
+
+int quosi_internal_error_handle(quosiError* errs, quosiToken tok, int type) {
+    const quosiErrorValue errv = ((quosiErrorValue){ .type=type, .span=tok.span });
+    quosi_error_list_push(errs, errv);
+    if (quosi_error_is_critical(errv)) {
+        errs->critical = true;
+        return 1;
+    }
+    return 0;
+}
+
+int quosi_internal_error_check(quosiError* errs, quosiToken tok, int expect, int failtype) {
+    if      (tok.type == QUOSI_TOKEN_ERROR) return quosi_internal_error_handle(errs, tok, QUOSI_ERR_INVALID_TOKEN);
+    else if (tok.type == QUOSI_TOKEN_EOF)   return quosi_internal_error_handle(errs, tok, QUOSI_ERR_EARLY_EOF);
+    else if (tok.type != expect)            return quosi_internal_error_handle(errs, tok, failtype);
+    return 0;
+}
 
 
 const char* quosi_error_to_string(quosiErrorValue e) {
@@ -116,18 +148,5 @@ bool quosi_error_is_critical(quosiErrorValue e) {
     default:
         return true;
     }
-}
-
-
-void quosi_error_list_push(quosiError* errors, quosiErrorValue err) {
-    quosids_arrpush(errors->list, err);
-}
-
-size_t quosi_error_list_len(const quosiError* errors) {
-    return quosids_arrlenu(errors->list);
-}
-
-void quosi_error_list_free(quosiError* errors) {
-    quosids_arrfree(errors->list);
 }
 

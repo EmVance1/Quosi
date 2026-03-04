@@ -1,10 +1,10 @@
+compile_flags.txt
 *.raddbg_project
+*.a
 bin/
 build/
-*.a
-compile_flags.txt
 todo.md
 grammar.ebnf
-alt.qsi
-alt2.qsi
+examples/alt.qsi
+examples/alt2.qsi
 

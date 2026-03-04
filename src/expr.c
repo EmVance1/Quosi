@@ -1,7 +1,9 @@
+#include "quosi/quosi.h"
 #include "quosi/ast.h"
 #include "quosi/bc.h"
 #include "ctx.h"
 #include "lex.h"
+#include "error.h"
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
@@ -53,19 +55,9 @@ static uint8_t opcode(quosiToken t) {
 }
 
 
-#define NEXT(stream) quosi_token_stream_next(stream)
-#define PEEK(stream) quosi_token_stream_peek(stream)
-#define ALLOC(T) (T*)quosi_allocator_allocate(ctx->alloc, sizeof(T))
+#define TNEXT(stream) quosi_token_stream_next(stream)
+#define TPEEK(stream) quosi_token_stream_peek(stream)
 #define STREQ(view, cptr) ((view.len == sizeof(cptr)-1) && (strncmp(view.ptr, cptr, view.len) == 0))
-
-#define EH_FAIL(tok, E) do { const quosiErrorValue errv = ((quosiErrorValue){ .type=QUOSI_ERR_##E, .span=tok.span }); \
-    quosi_error_list_push(ctx->errors, errv); \
-    if (quosi_error_is_critical(errv)) { ctx->errors->critical = true; return; } } while (0)
-#define EH_CHECK(tok, T, E) do { \
-    if (tok.type == QUOSI_TOKEN_ERROR) { EH_FAIL(tok, INVALID_TOKEN); } else \
-    if (tok.type == QUOSI_TOKEN_EOF)   { EH_FAIL(tok, EARLY_EOF); } else \
-    if (tok.type != QUOSI_TOKEN_##T)   { EH_FAIL(tok, E); } } while (0)
-#define EH_PROP() do { if (ctx->errors->critical) return; } while (0)
 
 
 static void parse_expr_impl(quosiParseCtx* ctx, quosiExpr* result, float minbp, int l);
@@ -74,7 +66,7 @@ void quosi_internal_parse_expr(quosiParseCtx* ctx, quosiExpr* result) {
     parse_expr_impl(ctx, result, 0.f, 0);
 }
 void quosi_internal_parse_value(quosiParseCtx* ctx, quosiExpr* result) {
-    quosiToken n = NEXT(&ctx->tokens);
+    quosiToken n = TNEXT(&ctx->tokens);
     switch (n.type) {
     case QUOSI_TOKEN_IDENT:
         result->value.ident = n.value;
@@ -109,20 +101,20 @@ void quosi_internal_parse_value(quosiParseCtx* ctx, quosiExpr* result) {
 }
 
 static void parse_expr_impl(quosiParseCtx* ctx, quosiExpr* result, float minbp, int l) {
-    quosiToken n = PEEK(&ctx->tokens);
+    quosiToken n = TPEEK(&ctx->tokens);
     switch (n.type) {
     case QUOSI_TOKEN_OPENPAREN:
-        NEXT(&ctx->tokens);
+        TNEXT(&ctx->tokens);
         parse_expr_impl(ctx, result, 0, l + 1);
         EH_PROP();
-        n = NEXT(&ctx->tokens);
+        n = TNEXT(&ctx->tokens);
         EH_CHECK(n, CLOSEPAREN, UNCLOSED_PAREN);
         if (l == 0) return;
         break;
 
     case QUOSI_TOKEN_LOGNOT: {
-        NEXT(&ctx->tokens);
-        result->lhs = ALLOC(quosiExpr);
+        TNEXT(&ctx->tokens);
+        result->lhs = quosi_allocator_allocate(ctx->alloc, sizeof(quosiExpr));
         parse_expr_impl(ctx, result->lhs, 0, l);
         EH_PROP();
         result->value.op = QUOSI_INSTR_LNOT;
@@ -140,17 +132,17 @@ static void parse_expr_impl(quosiParseCtx* ctx, quosiExpr* result, float minbp, 
     }
 
     while (true) {
-        const quosiToken op = PEEK(&ctx->tokens);
+        const quosiToken op = TPEEK(&ctx->tokens);
         if (op.type == QUOSI_TOKEN_COMMA) break;
         if (op.type == QUOSI_TOKEN_CLOSEPAREN) break;
         const struct Assoc bindstr = binding(op);
         if (bindstr.lhs < 0.f) EH_FAIL(op, INVALID_OPERATOR);
         if (bindstr.lhs < minbp) break;
-        NEXT(&ctx->tokens);
-        quosiExpr* lhs = ALLOC(quosiExpr);
+        TNEXT(&ctx->tokens);
+        quosiExpr* lhs = quosi_allocator_allocate(ctx->alloc, sizeof(quosiExpr));
         *lhs = *result;
         result->lhs = lhs;
-        result->rhs = ALLOC(quosiExpr);
+        result->rhs = quosi_allocator_allocate(ctx->alloc, sizeof(quosiExpr));
         parse_expr_impl(ctx, result->rhs, bindstr.rhs, l);
         EH_PROP();
         result->value.op = opcode(op);
@@ -158,7 +150,7 @@ static void parse_expr_impl(quosiParseCtx* ctx, quosiExpr* result, float minbp, 
         if (result->value.op == QUOSI_INSTR_STORE && result->lhs->tag != QUOSI_EXPR_IDENT) {
             EH_FAIL(op, INVALID_ASSIGN);
         }
-        if (PEEK(&ctx->tokens).type == QUOSI_TOKEN_COMMA) break;
+        if (TPEEK(&ctx->tokens).type == QUOSI_TOKEN_COMMA) break;
     }
 
     return;

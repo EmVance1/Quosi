@@ -1,5 +1,5 @@
-#ifndef CQUOSI_EXPR_H
-#define CQUOSI_EXPR_H
+#ifndef CQUOSI_IMPL_EXPR_H
+#define CQUOSI_IMPL_EXPR_H
 #include "quosi/ast.h"
 #include "ctx.h"
 
