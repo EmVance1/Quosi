@@ -14,7 +14,7 @@ START = <Brian: "init"> :: ( fib.i = 0, fib.a = 0, fib.b = 1 ) => loop
 loop = if (fib.i < 10) then
     <Brian: "loop"> :: ( fib.temp = fib.a + fib.b, fib.a = fib.b, fib.b = fib.temp, fib.i += 1 ) => loop
 else
-    <Brian: "end"> => EXIT
+    <Brian: "exit"> => EXIT
 end
 
 endmod

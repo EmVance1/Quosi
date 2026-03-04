@@ -1,28 +1,37 @@
 
-module Default
+module Brian
 
-START = if (ShimmyIntroScene.IsActive && once) then
-    <BrianPrime: "Oh hello there. Fancy a game of cards?"> (
-        "Love to." => v01
-        "If that's what counts for fun around here." => v02
+START = if (ShimmyIntroScene.IsActive) then
+    <Brian: "Oh hello there. Fancy a game of cards?", "It's good fun you know."> <Shimmy: "Go on mate, play a game with brian."> (
+        "Love to. Names ${player} by the way." => happy
+        "If that's what counts for fun around here." :: ( Brian.Suspicious = true ) => chat
     )
 else
-    <BrianPrime: "Lovely spot this, don't you think?"> => EXIT
+    <Brian: "Lovely spot this, don't you think?"> => EXIT
 end
 
+happy = <Brian: "Good on ye ${player}."> => game
+chat  = <Brian: "Ok slow down pal, you just got here. Where are you from?"> (
+    match (Player.Origin) with
+      (Twinvayne) "Twinvayne." => fasc
+      (Domali)    "Domali."    => fasc
+      (_)         "Nowhere."   => enig
+    end
+    "Your moms house." :: ( Brian.Approval -= 10 ) => rude
+)
 
-v01 = <BrianPrime: "Good on ye."> => game
-v02 = <BrianPrime: "You need to open yourself up to new experiences friend."> => game
-
-game = <BrianPrime: "Why don't you pick a card, any card."> (
-    "*Pick higher up*"  => pick
-    "*Pick lower down*" => pick
+fasc = <Brian: "Fascinating.">   => game
+enig = <Brian: "How enigmatic."> => game
+rude = <Brian: "How rude.">      => game
+game = <Brian: "Why don't you pick a card, any card."> (
+    "*Pick high*" => pick
+    "*Pick low*"  => pick
 )
 
 pick = match (rng3) with
-    (0) <Narrator: "*You draw an ace.*">            <BrianPrime: "Lucky lucky.">     => EXIT
-    (1) <Narrator: "*You draw a 3.*">               <BrianPrime: "Bad luck friend."> => EXIT
-    (_) <Narrator: "*You draw a 9. As did Brian.*"> <BrianPrime: "Well well.">       => EXIT
+    (0) <Narrator: "*You draw an ace.*">            => EXIT
+    (1) <Narrator: "*You draw a 3.*">               => EXIT
+    (_) <Narrator: "*You draw a 9. As did Brian.*"> => EXIT
 end
 
 endmod
